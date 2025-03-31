@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+env/
+*.venv
+
+# Django Secrets
+*.env
+*.DS_Store
+media/
+staticfiles/
+local_settings.py  # If using a separate local settings file
+
+# Logs and Caches
+logs/
+*.log
+*.out
+*.pid
+celerybeat-schedule
+
+# Migrations (Optional)
+**/migrations/*.py
+!**/migrations/__init__.py  # Keep __init__.py
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+
