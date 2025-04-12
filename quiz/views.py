@@ -274,32 +274,42 @@ class RevisionQuestionAPI(APIView):
         subject = data['subject']
 
         try:
-            # Verify session
             session = UserSession.objects.get(
                 session_id=session_id,
                 user=request.user,
                 is_active=True
             )
 
-            # Get user progress
             user_progress = UserProgress.objects.get(
                 user=request.user,
                 grade=request.user.grade,
                 subject=subject
             )
 
-            # Select random completed topic
             topic = random.choice(user_progress.completed_topics)
-
-            # Select random difficulty level
             level = random.choice(DIFFICULTY_LEVELS)
 
-            # Generate question
-            question = self._generate_revision_question(
+            generator = QuestionGenerator()
+            question = generator.generate_question(
                 request.user.grade,
                 subject,
                 topic,
-                level
+                level,
+                revision=True
+            )
+
+            # Create question record for validation
+            new_question_id = uuid.uuid4()
+            QuestionRecord.objects.create(
+                user=request.user,
+                session=session,
+                question_id=new_question_id,
+                question_text=question['question_text'],
+                options=question['options'],
+                correct_answer=question['correct_answer'],
+                subject=subject,
+                topic=topic,
+                level=level
             )
 
             return Response({
@@ -307,6 +317,7 @@ class RevisionQuestionAPI(APIView):
                 'options': question['options'],
                 'hint': question['hint'],
                 'explanation': question['explanation'],
+                'question_id': str(new_question_id),
                 'metadata': {
                     'type': 'revision',
                     'topic': topic,
@@ -314,23 +325,11 @@ class RevisionQuestionAPI(APIView):
                 }
             })
 
-        except UserSession.DoesNotExist:
-            return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
-        except UserProgress.DoesNotExist:
-            return Response({'error': 'Progress not found'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _generate_revision_question(self, grade, subject, topic, level):
-        generator = QuestionGenerator()
-        return generator.generate_question(
-            grade=grade,
-            subject=subject,
-            topic=topic,
-            level=level
-        )
 
-
+# quiz/views.py (update SubmitAnswerAPI)
 class SubmitAnswerAPI(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -351,11 +350,20 @@ class SubmitAnswerAPI(APIView):
             return Response({'error': 'Invalid or already answered question'}, 
                           status=status.HTTP_400_BAD_REQUEST)
 
-        is_correct = (data['user_answer'] == question.correct_answer)
+        # Normalize answers
+        user_answer = data['user_answer'].upper().strip()
+        correct_answer = question.correct_answer.upper().strip()
+
+        # Extract letter from answer if full option provided
+        if len(user_answer) > 1:
+            user_answer = user_answer[0] if user_answer[0] in ['A','B','C','D'] else None
+
+        is_correct = user_answer == correct_answer
+
+        # Update question record
         question.user_answer = data['user_answer']
         question.is_correct = is_correct
         question.save()
-
         # Update session progress
         session_progress = SessionProgress.objects.get(
             session=question.session,
@@ -394,6 +402,7 @@ class SubmitAnswerAPI(APIView):
         return Response({
             'is_correct': is_correct,
             'correct_answer': question.correct_answer,
+            'user_answer': user_answer,
             'current_streak': session_progress.current_streak,
             'max_streak': session_progress.max_streak,
             'session_stats': {

@@ -11,18 +11,18 @@ class QuestionCache:
     def get(key):
         return cache.get(key, [])
 
-
     @staticmethod
     def add(key, question):
         cached = QuestionCache.get(key)
-        # Store only question content without IDs
-        clean_question = {k:v for k,v in question.items() if k != 'id'}
-        if len(cached) >= 10:
-            cached.pop(0)
-        cached.append(clean_question)
-        cache.set(key, cached, timeout=3600*24)
+        signature = QuestionCache.generate_signature(question)
         
-        
+        if not any(QuestionCache.generate_signature(q) == signature for q in cached):
+            if len(cached) >= 20:
+                cached = cached[5:]
+            cached.append(question)
+            cache.set(key, cached, timeout=3600*24)
+
     @staticmethod
-    def generate_hash(text):
-        return hashlib.md5(text.encode()).hexdigest()
+    def generate_signature(question):
+        content = f"{question['question_text']}-{'-'.join(question['options'])}"
+        return hashlib.sha256(content.encode()).hexdigest()
