@@ -44,7 +44,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class QuestionRequestSerializer(serializers.Serializer):
-    grade = serializers.IntegerField(min_value=1, max_value=5)
+    grade = serializers.IntegerField(min_value=1, max_value=8)
     subject = serializers.ChoiceField(choices=["mathematics", "english"])
     session_id = serializers.UUIDField()
 
