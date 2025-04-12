@@ -83,3 +83,7 @@ class RevisionQuestionRequestSerializer(serializers.Serializer):
 class SubmitAnswerSerializer(serializers.Serializer):
     question_id = serializers.UUIDField()
     user_answer = serializers.CharField(max_length=255)
+    
+# Add to serializers.py
+class TopicIntroductionSerializer(serializers.Serializer):
+    subject = serializers.ChoiceField(choices=["mathematics", "english"])

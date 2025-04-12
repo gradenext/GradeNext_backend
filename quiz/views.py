@@ -1,7 +1,7 @@
 
 from django.contrib.auth import get_user_model
 from .utils.generator import QuestionGenerator
-from .config.curriculum import GRADE_SUBJECT_CONFIG, DIFFICULTY_LEVELS
+from .config.curriculum import GRADE_SUBJECT_CONFIG, DIFFICULTY_LEVELS,SUBJECT_TOPICS
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,11 +9,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord
-from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer
 from django.utils import timezone
 from django.db.utils import IntegrityError
 import random
 import uuid
+import json
+
 
 User = get_user_model()
 
@@ -451,3 +453,99 @@ class SubmitAnswerAPI(APIView):
             user_progress.current_level = progress.current_level
             user_progress.completed_topics = progress.completed_topics
             user_progress.save()
+
+
+# Add to views.py
+# Modified view in views.py
+class TopicIntroductionAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TopicIntroductionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        subject = serializer.validated_data['subject']
+
+        try:
+            # Get user's current progress
+            user_progress = UserProgress.objects.get(
+                user=user,
+                grade=user.grade,
+                subject=subject
+            )
+            current_topic = user_progress.current_topic
+            
+            # Get curriculum data
+            display_name = GRADE_SUBJECT_CONFIG[user.grade][subject]["display_names"][current_topic]
+
+            # Generate content
+            generator = QuestionGenerator()
+            prompt = f"""Create a lesson summary for {display_name} (Grade {user.grade} {subject}) with:
+            
+            1. **Introduction**: Two distinct paragraphs (total 200-250 words) explaining:
+               - First paragraph: Main concept and importance
+               - Second paragraph: Practical applications
+            2. **Key Concepts**: 5-7 fundamental principles as bullet points
+            3. **Solved Examples**: 3 problems with step-by-step solutions
+
+            Format requirements:
+            - Use simple language suitable for students
+            - Introduction must be two paragraphs
+            - Return JSON with fields: introduction, key_concepts, examples
+            - Example response format:
+              {{
+                "introduction": [
+                    "First paragraph text...",
+                    "Second paragraph text..."
+                ],
+                "key_concepts": [
+                    "Concept 1...",
+                    "Concept 2..."
+                ],
+                "examples": [
+                    "Example 1...",
+                    "Example 2..."
+                ]
+              }}
+            """
+            
+            response = generator.client.chat.completions.create(
+                model="gpt-4-1106-preview",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=800,
+                response_format={"type": "json_object"}
+            )
+            
+            content = json.loads(response.choices[0].message.content)
+            
+            # Validate response structure
+            if not all(key in content for key in ['introduction', 'key_concepts', 'examples']):
+                raise ValueError("Invalid response structure from OpenAI")
+
+            # Ensure introduction is exactly 2 paragraphs
+            if len(content['introduction']) != 2:
+                content['introduction'] = self._split_paragraphs(content['introduction'])
+
+            return Response(content)
+
+        except UserProgress.DoesNotExist:
+            return Response({'error': 'Progress not found - start a session first'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except KeyError as e:
+            return Response({'error': f'Missing key in response: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({'error': str(e)}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _split_paragraphs(self, text):
+        """Fallback method to split text into two paragraphs"""
+        sentences = text.split('. ')
+        mid_point = len(sentences) // 2
+        return [
+            '. '.join(sentences[:mid_point]) + '.',
+            '. '.join(sentences[mid_point:]) + '.'
+        ]

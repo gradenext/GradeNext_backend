@@ -7,7 +7,8 @@ from .views import (
     LogoutAPI,
     UserProfileAPI,
     RevisionQuestionAPI,
-    SubmitAnswerAPI
+    SubmitAnswerAPI,
+    TopicIntroductionAPI
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
     path('auth/logout/', LogoutAPI.as_view(), name='logout'),
     path('auth/profile/', UserProfileAPI.as_view(), name='user-profile'),
     path('submit-answer/', SubmitAnswerAPI.as_view(), name='submit-answer'),
+    path('topic-introduction/', TopicIntroductionAPI.as_view(), name='topic-introduction'),
 ]
