@@ -202,8 +202,84 @@ GRADE_SUBJECT_CONFIG = {
                 "literature": "Literary Analysis"
             }
         }
+    },
+    
+    7: {
+        "mathematics": {
+            "topics": [
+                "scale_drawings",
+                "introducing_proportional_relationships",
+                "measuring_circles",
+                "proportional_relationships_and_percentages",
+                "rational_number_arithmetic",
+                "expressions_equations_and_inequalities",
+                "angles_triangles_and_prisms",
+                "probability_and_sampling",
+                "putting_it_all_together"
+            ],
+            "display_names": {
+                "scale_drawings": "Scale Drawings",
+                "introducing_proportional_relationships": "Introducing Proportional Relationships",
+                "measuring_circles": "Measuring Circles",
+                "proportional_relationships_and_percentages": "Proportional Relationships and Percentages",
+                "rational_number_arithmetic": "Rational Number Arithmetic",
+                "expressions_equations_and_inequalities": "Expressions, Equations, and Inequalities",
+                "angles_triangles_and_prisms": "Angles, Triangles, and Prisms",
+                "probability_and_sampling": "Probability and Sampling",
+                "putting_it_all_together": "Putting It All Together"
+            }
+        },
+        "english": {
+            "topics": ["grammar", "vocabulary", "reading", "writing", "literature"],
+            "display_names": {
+                "grammar": "Complex Grammar",
+                "vocabulary": "Advanced Academic Vocabulary",
+                "reading": "Critical Analysis",
+                "writing": "Persuasive Writing",
+                "literature": "Literary Criticism"
+            }
+        }
+    },
+    
+    8: {
+        "mathematics": {
+            "topics": [
+                "rigid_transformations_and_congruence",
+                "dilations_similarity_and_introducing_slope",
+                "linear_relationships",
+                "linear_equations_and_linear_systems",
+                "functions_and_volume",
+                "associations_in_data",
+                "exponents_and_scientific_notation",
+                "pythagorean_theorem_and_irrational_numbers",
+                "putting_it_all_together"
+            ],
+            "display_names": {
+                "rigid_transformations_and_congruence": "Rigid Transformations and Congruence",
+                "dilations_similarity_and_introducing_slope": "Dilations, Similarity, and Introducing Slope",
+                "linear_relationships": "Linear Relationships",
+                "linear_equations_and_linear_systems": "Linear Equations and Linear Systems",
+                "functions_and_volume": "Functions and Volume",
+                "associations_in_data": "Associations in Data",
+                "exponents_and_scientific_notation": "Exponents and Scientific Notation",
+                "pythagorean_theorem_and_irrational_numbers": "Pythagorean Theorem and Irrational Numbers",
+                "putting_it_all_together": "Putting It All Together"
+            }
+        },
+        "english": {
+            "topics": ["grammar", "vocabulary", "reading", "writing", "literature"],
+            "display_names": {
+                "grammar": "Advanced Grammar Structures",
+                "vocabulary": "Domain-Specific Vocabulary",
+                "reading": "Interpretive Reading",
+                "writing": "Research Writing",
+                "literature": "Comparative Literature"
+            }
+        }
     }
+    
 }
+
 
 
 SUBJECT_TOPICS = {
@@ -475,6 +551,122 @@ SUBJECT_TOPICS = {
         "Exploring Our World",
         "Voting",
         "Making Connections"
+    ],
+    
+#    Grade 7 Mathematics 
+    "scale_drawings": [
+        "Scaled Copies",
+        "Scale Drawings",
+        "Let’s Put It to Work"
+    ],
+    "introducing_proportional_relationships": [
+        "Representing Proportional Relationships with Tables",
+        "Representing Proportional Relationships with Equations",
+        "Comparing Proportional and Nonproportional Relationships",
+        "Representing Proportional Relationships with Graphs",
+        "Let’s Put It to Work"
+    ],
+    "measuring_circles": [
+        "Circumference of a Circle",
+        "Area of a Circle",
+        "Let’s Put It to Work"
+    ],
+    "proportional_relationships_and_percentages": [
+        "Proportional Relationships with Fractions",
+        "Percent Increase and Decrease",
+        "Applying Percentages",
+        "Let’s Put It to Work"
+    ],
+    "rational_number_arithmetic": [
+        "Adding and Subtracting Rational Numbers",
+        "Multiplying and Dividing Rational Numbers",
+        "Four Operations with Rational Numbers",
+        "Let’s Put It to Work"
+    ],
+    "expressions_equations_and_inequalities": [
+        "Representing Situations of the Form \( px + q = r \) and \( p(x + q) = r \)",
+        "Solving Equations of the Form \( px + q = r \) and \( p(x + q) = r \) and Problems That Lead to Those Equations",
+        "Inequalities",
+        "Writing Equivalent Expressions",
+        "Let’s Put It to Work"
+    ],
+    "angles_triangles_and_prisms": [
+        "Angle Relationships",
+        "Drawing Polygons with Given Conditions",
+        "Solid Geometry",
+        "Let’s Put It to Work"
+    ],
+    "probability_and_sampling": [
+        "Probabilities of Single-Step Events",
+        "Probabilities of Multi-step Events",
+        "Sampling",
+        "Using Samples",
+        "Let’s Put It to Work"
+    ],
+    "putting_it_all_together": [
+        "Running a Restaurant",
+        "Making Connections",
+        "Designing a Course"
+    ],
+
+    #  Grade 8 Mathematics
+    "rigid_transformations_and_congruence": [
+        "Rigid Transformations",
+        "Properties of Rigid Transformations",
+        "Congruence",
+        "Angles in a Triangle",
+        "Let's Put It to Work"
+    ],
+    "dilations_similarity_and_introducing_slope": [
+        "Dilations",
+        "Similarity",
+        "Slope",
+        "Let's Put It to Work"
+    ],
+    "linear_relationships": [
+        "Proportional Relationships",
+        "Representing Linear Relationships",
+        "Finding Slopes",
+        "Linear Equations",
+        "Let's Put It to Work"
+    ],
+    "linear_equations_and_linear_systems": [
+        "Equivalent Equations",
+        "Linear Equations in One Variable",
+        "Systems of Linear Equations",
+        "Let's Put It to Work"
+    ],
+    "functions_and_volume": [
+        "Inputs and Outputs",
+        "Representing and Interpreting Functions",
+        "Linear Functions and Rates of Change",
+        "Cylinders and Cones",
+        "Dimensions and Spheres",
+        "Let's Put It to Work"
+    ],
+    "associations_in_data": [
+        "Does This Predict That?",
+        "Associations in Numerical Data",
+        "Associations in Categorical Data",
+        "Let's Put It to Work"
+    ],
+    "exponents_and_scientific_notation": [
+        "Exponent Rules",
+        "More Exponent Rules",
+        "Large and Small Numbers",
+        "Scientific Notation",
+        "Let's Put It to Work"
+    ],
+    "pythagorean_theorem_and_irrational_numbers": [
+        "Side Lengths and Areas of Squares",
+        "The Pythagorean Theorem",
+        "Side Lengths and Volumes of Cubes",
+        "Decimal Representation of Rational and Irrational Numbers",
+        "Let's Put It to Work"
+    ],
+    "putting_it_all_together": [
+        "Tessellations",
+        "Predicting the Temperature"
     ]
     },
     "english": {
