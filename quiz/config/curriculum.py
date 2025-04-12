@@ -167,6 +167,42 @@ GRADE_SUBJECT_CONFIG = {
             }
         }
     },
+    6: {
+        "mathematics": {
+            "topics": [
+                "reasoning_to_find_area",
+                "introducing_ratios",
+                "unit_rates_and_percentages",
+                "dividing_fractions",
+                "arithmetic_in_base_ten",
+                "expressions_and_equations",
+                "rational_numbers",
+                "data_sets_and_distributions",
+                "putting_it_all_together"
+            ],
+            "display_names": {
+                "reasoning_to_find_area": "Reasoning to Find Area",
+                "introducing_ratios": "Introducing Ratios",
+                "unit_rates_and_percentages": "Unit Rates and Percentages",
+                "dividing_fractions": "Dividing Fractions",
+                "arithmetic_in_base_ten": "Arithmetic in Base Ten",
+                "expressions_and_equations": "Expressions and Equations",
+                "rational_numbers": "Rational Numbers",
+                "data_sets_and_distributions": "Data Sets and Distributions",
+                "putting_it_all_together": "Putting It All Together"
+            }
+        },
+        "english": {
+            "topics": ["grammar", "vocabulary", "reading", "writing", "literature"],
+            "display_names": {
+                "grammar": "Advanced Grammar",
+                "vocabulary": "Academic Vocabulary",
+                "reading": "Analytical Reading",
+                "writing": "Structured Writing",
+                "literature": "Literary Analysis"
+            }
+        }
+    }
 }
 
 
@@ -377,7 +413,69 @@ SUBJECT_TOPICS = {
             "The Coordinate Grid",
             "The Hierarchy of Shapes",
             "Numerical Patterns"
-        ]
+        ],
+            # Grade 6 Mathematics
+    "reasoning_to_find_area": [
+        "Reasoning to Find Area",
+        "Parallelograms",
+        "Triangles and Other Polygons",
+        "Surface Area",
+        "Squares and Cubes",
+        "Let’s Put It to Work"
+    ],
+    "introducing_ratios": [
+        "What Are Ratios?",
+        "Equivalent Ratios",
+        "Representing Equivalent Ratios",
+        "Solving Ratio and Rate Problems",
+        "Part-Part-Whole Ratios",
+        "Let’s Put It to Work"
+    ],
+    "unit_rates_and_percentages": [
+        "Units of Measurement and Unit Conversion",
+        "Rates",
+        "Percentages",
+        "Let’s Put It to Work"
+    ],
+    "dividing_fractions": [
+        "Making Sense of Division",
+        "Meanings of Fraction Division",
+        "Algorithm for Fraction Division",
+        "Fractions in Lengths, Areas, and Volumes",
+        "Let’s Put It to Work"
+    ],
+    "arithmetic_in_base_ten": [
+        "Exploring, Adding, and Subtracting Decimals",
+        "Multiplying Decimals",
+        "Dividing Decimals",
+        "Let’s Put It to Work"
+    ],
+    "expressions_and_equations": [
+        "Equations in One Variable",
+        "Equal and Equivalent",
+        "Expressions with Exponents",
+        "Relationships Between Quantities",
+        "Let’s Put It to Work"
+    ],
+    "rational_numbers": [
+        "Negative Numbers and Absolute Value",
+        "Inequalities",
+        "The Coordinate Plane",
+        "Common Factors and Common Multiples",
+        "Let’s Put It to Work"
+    ],
+    "data_sets_and_distributions": [
+        "Data, Variability, and Statistical Questions",
+        "Dot Plots and Histograms",
+        "Measures of Center and Variability",
+        "Median and IQR",
+        "Let’s Put It to Work"
+    ],
+    "putting_it_all_together": [
+        "Exploring Our World",
+        "Voting",
+        "Making Connections"
+    ]
     },
     "english": {
         # English Topics
