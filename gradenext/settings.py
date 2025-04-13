@@ -103,12 +103,36 @@ WSGI_APPLICATION = "gradenext.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'gradenext_db',
+#         'USER': 'gradenext_user',
+#         'PASSWORD': 'Kuldeep@303',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+import os
+import dj_database_url
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    'default': dj_database_url.config(
+        default= os.getenv('DATABASE_URL'),
+        conn_max_age=600
+    )
 }
+
+
+
 
 
 # Password validation
@@ -156,3 +180,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 if not DEBUG:
     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    
+if 'RENDER' in os.environ:
+    ALLOWED_HOSTS.append(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
+    DEBUG = False
+
