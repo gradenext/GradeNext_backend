@@ -163,7 +163,7 @@ class QuestionAPI(APIView):
                 subject=data['subject']
             )
             
-            question_data = self._generate_question(data, session_progress)
+            question_data = self._generate_question(request.user,data, session_progress)
             new_question_id = uuid.uuid4()
             
             QuestionRecord.objects.create(
@@ -196,9 +196,10 @@ class QuestionAPI(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _generate_question(self, data, progress):
+    def _generate_question(self, user, data, progress):
         generator = QuestionGenerator()
         return generator.generate_question(
+            user=user,
             grade=data['grade'],
             subject=data['subject'],
             topic=progress.current_topic,

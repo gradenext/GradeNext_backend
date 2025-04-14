@@ -134,3 +134,15 @@ class QuestionRecord(models.Model):
     subject = models.CharField(max_length=20)
     topic = models.CharField(max_length=100)
     level = models.CharField(max_length=20)
+    
+
+class UserQuestionHistory(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    question_signature = models.CharField(max_length=64)  # SHA-256 hash
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # unique_together = ('user', 'question_signature')
+        indexes = [
+            models.Index(fields=['user', 'question_signature'])
+        ]
