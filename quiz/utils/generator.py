@@ -82,18 +82,25 @@ class QuestionGenerator:
 
     Requirements (JSON FORMAT REQUIRED):
     - Return valid JSON with fields: questionText, options, correctAnswer, hint, explanation
-    - Include 4 distinct options with values (not just letters)
-    - Include clear explanation of the solution
+    - Include 4 distinct options with values (not letters)
+    - correctAnswer must be the exact text of the correct option
+    - explanation should be a brief explanation of the correct answer
+    - hint should be a short clue to help the student
+    - Avoid using letter labels (A-D) in options or correctAnswer
+    - Avoid the question relating to any containing any diagrams or images
+    - Use a simple and clear language suitable for the grade level
+    - Ensure the question is educational and relevant to the topic
+    
     - Example JSON response:
     {{
-    "questionText": "What is 15 - 7?",
-    "options": ["8", "9", "7", "10"],
-    "correctAnswer": "A",
-    "hint": "Subtract carefully",
-    "explanation": "15 - 7 = 8"
+        "questionText": "What is 15 - 7?",
+        "options": ["8", "9", "7", "10"],
+        "correctAnswer": "8",
+        "hint": "Subtract carefully",
+        "explanation": "15 - 7 = 8"
     }}
 
-    Important: You must format the response as JSON and include the word 'JSON' in your response."""
+    Important: Do NOT use letter labels (A-D) in options or correctAnswer. Format as JSON."""
     
     
     def _validate_and_format(self, question, grade, subject, topic, level):
@@ -106,7 +113,7 @@ class QuestionGenerator:
 
         # Validate option content
         clean_options = []
-        for idx, opt in enumerate(question['options']):
+        for opt in question['options']:
             # Remove existing labels and whitespace
             clean_opt = re.sub(r'^[A-D][):.]?\s*', '', str(opt)).strip()
             
@@ -116,27 +123,16 @@ class QuestionGenerator:
                 
             clean_options.append(clean_opt)
 
-        # Check option type consistency - ADD THIS SECTION
-        option_types = set()
-        for opt in clean_options:
-            if re.match(r'^-?\d+([.,]\d+)?$', opt):
-                option_types.add('number')
-            else:
-                option_types.add('text')
-                
-        if len(option_types) > 1:
-            raise ValueError("Mixed option types: " + ", ".join(option_types))
-        # END OF NEW SECTION
-
         # Validate correct answer format
-        raw_correct = str(question['correctAnswer']).strip().upper()
+        raw_correct = str(question['correctAnswer']).strip()
         
-        # Handle letter-based answers
-        if re.match(r'^[A-D]$', raw_correct):
-            correct_index = ord(raw_correct) - 65
-            if correct_index >= len(clean_options):
+        # Extract value from letter-based answers
+        if re.match(r'^[A-D]$', raw_correct, re.IGNORECASE):
+            try:
+                correct_index = ord(raw_correct.upper()) - 65
+                correct_value = clean_options[correct_index]
+            except IndexError:
                 raise ValueError("Correct answer letter out of range")
-            correct_value = clean_options[correct_index]
         else:
             # Handle value-based answers
             clean_correct = re.sub(r'^[A-D][):.]?\s*', '', raw_correct).strip()
@@ -144,26 +140,13 @@ class QuestionGenerator:
                 raise ValueError("Correct answer not found in options")
             correct_value = clean_correct
 
-        # Shuffle options while tracking correct answer
-        indexed_options = list(enumerate(clean_options))
-        random.shuffle(indexed_options)
-        
-        # Build final options with new labels
-        final_options = []
-        correct_letter = None
-        for i, (orig_idx, opt) in enumerate(indexed_options):
-            letter = chr(65 + i)
-            final_options.append(f"{letter}: {opt}")
-            if clean_options[orig_idx] == correct_value:
-                correct_letter = letter
-
-        if not correct_letter:
-            raise ValueError("Correct answer lost during shuffling")
+        # Shuffle options while tracking correct value
+        random.shuffle(clean_options)
 
         return {
             'question_text': question['questionText'],
-            'options': final_options,
-            'correct_answer': correct_letter,
+            'options': clean_options,  # Store raw values without labels
+            'correct_answer': correct_value,  # Store actual correct value
             'hint': question['hint'],
             'explanation': question['explanation'],
             'grade': grade,

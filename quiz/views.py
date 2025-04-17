@@ -15,6 +15,7 @@ from django.db.utils import IntegrityError
 import random
 import uuid
 import json
+import re
 
 
 User = get_user_model()
@@ -65,19 +66,17 @@ class LoginAPI(APIView):
 
             # Initialize progress for each enrolled subject
             for subject in user.courses:
-                # Get or create user progress
                 user_progress, created = UserProgress.objects.get_or_create(
                     user=user,
                     grade=user.grade,
                     subject=subject,
                     defaults={
                         'current_topic': GRADE_SUBJECT_CONFIG[user.grade][subject]["topics"][0],
-                        'completed_topics': [],  # Explicit empty list
+                        'completed_topics': [],
                         'current_level': DIFFICULTY_LEVELS[0]
                     }
                 )
 
-                # Create session progress using user's existing progress
                 SessionProgress.objects.create(
                     session=new_session,
                     subject=subject,
@@ -88,14 +87,107 @@ class LoginAPI(APIView):
                     completed_topics=user_progress.completed_topics.copy()
                 )
 
+            # Calculate comprehensive user statistics
+            user_stats = self._calculate_user_stats(user)
+            
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
                 'account_id': user.account_id,
                 'session_id': str(new_session.session_id),
-                'user': UserProfileSerializer(user).data
+                'user': UserProfileSerializer(user).data,
+                'user_stats': user_stats
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def _calculate_user_stats(self, user):
+        from django.db.models import Count, Case, When, IntegerField
+
+        # Corrected annotation syntax
+        topic_stats = QuestionRecord.objects.filter(user=user).values(
+            'subject', 'topic'
+        ).annotate(
+            correct=Count(
+                Case(
+                    When(is_correct=True, then=1),
+                    output_field=IntegerField()
+                )
+            ),
+            incorrect=Count(
+                Case(
+                    When(is_correct=False, then=1), 
+                    output_field=IntegerField()
+                )
+            )
+        )
+
+        # Rest of the method remains the same
+        stats_dict = {}
+        for stat in topic_stats:
+            subject = stat['subject']
+            topic_key = stat['topic']
+            stats_dict.setdefault(subject, {})[topic_key] = {
+                'correct': stat['correct'],
+                'incorrect': stat['incorrect'],
+                'total': stat['correct'] + stat['incorrect']
+            }
+
+        # Get user progresses for current grade
+        user_progresses = UserProgress.objects.filter(user=user, grade=user.grade)
+        
+        # Build subject-wise statistics
+        subjects = {}
+        overall = {'correct': 0, 'incorrect': 0, 'total': 0}
+        
+        for progress in user_progresses:
+            subject = progress.subject
+            grade_config = GRADE_SUBJECT_CONFIG.get(user.grade, {})
+            subject_config = grade_config.get(subject, {})
+            display_names = subject_config.get("display_names", {})
+            
+            # Initialize subject entry
+            subjects[subject] = {
+                'total': 0,
+                'correct': 0,
+                'incorrect': 0,
+                'topics': []
+            }
+
+            # Process completed topics
+            for topic_key in progress.completed_topics:
+                topic_name = display_names.get(topic_key, topic_key)
+                stats = stats_dict.get(subject, {}).get(topic_key, {
+                    'correct': 0,
+                    'incorrect': 0,
+                    'total': 0
+                })
+                
+                # Add topic statistics
+                subjects[subject]['topics'].append({
+                    'topic': topic_name,
+                    'correct': stats['correct'],
+                    'incorrect': stats['incorrect'],
+                    'total': stats['total']
+                })
+                
+                # Update subject totals
+                subjects[subject]['correct'] += stats['correct']
+                subjects[subject]['incorrect'] += stats['incorrect']
+                subjects[subject]['total'] += stats['total']
+            
+            # Update overall totals
+            overall['correct'] += subjects[subject]['correct']
+            overall['incorrect'] += subjects[subject]['incorrect']
+            overall['total'] += subjects[subject]['total']
+
+        return {
+            'overall': {
+                'total': overall['total'],
+                'correct': overall['correct'],
+                'incorrect': overall['incorrect']
+            },
+            'subjects': subjects
+        }
 
 
 class LogoutAPI(APIView):
@@ -294,10 +386,11 @@ class RevisionQuestionAPI(APIView):
 
             generator = QuestionGenerator()
             question = generator.generate_question(
-                request.user.grade,
-                subject,
-                topic,
-                level,
+                user=request.user,
+                grade=request.user.grade,
+                subject=subject,
+                topic=topic,
+                level=level,
                 revision=True
             )
 
@@ -354,17 +447,16 @@ class SubmitAnswerAPI(APIView):
                           status=status.HTTP_400_BAD_REQUEST)
 
         # Normalize answers
-        user_answer = data['user_answer'].upper().strip()
-        correct_answer = question.correct_answer.upper().strip()
+        user_answer = str(data['user_answer']).strip()
+        correct_answer = str(question.correct_answer).strip()
 
-        # Extract letter from answer if full option provided
-        if len(user_answer) > 1:
-            user_answer = user_answer[0] if user_answer[0] in ['A','B','C','D'] else None
-
+        # Remove any residual labels from user answer
+        user_answer = re.sub(r'^[A-D][).\s]*', '', user_answer).strip()
+        
         is_correct = user_answer == correct_answer
 
         # Update question record
-        question.user_answer = data['user_answer']
+        question.user_answer = user_answer
         question.is_correct = is_correct
         question.save()
         # Update session progress
@@ -485,7 +577,7 @@ class TopicIntroductionAPI(APIView):
             generator = QuestionGenerator()
             prompt = f"""Create a lesson summary for {display_name} (Grade {user.grade} {subject}) with:
             
-            1. **Introduction**: Two distinct paragraphs (total 200-250 words) explaining:
+            1. **Introduction**: Two distinct paragraphs (total 100 words) explaining:
                - First paragraph: Main concept and importance
                - Second paragraph: Practical applications
             2. **Key Concepts**: 5-7 fundamental principles as bullet points
@@ -493,7 +585,7 @@ class TopicIntroductionAPI(APIView):
 
             Format requirements:
             - Use simple language suitable for students
-            - Introduction must be two paragraphs
+            - Introduction must be 100 words 3 lines long mas
             - Return JSON with fields: introduction, key_concepts, examples
             - Example response format:
               {{

@@ -33,9 +33,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'account_id', 'email', 'student_name', 'parent_name',
-            'gender', 'grade', 'courses',
-            'country', 'state', 'zip_code'
+            'gender', 'grade', 'courses', 'country', 'state', 'zip_code'
         ]
+        read_only_fields = ['account_id', 'email']
 
     def get_active_session(self, obj):
         active_session = UserSession.objects.filter(user=obj, is_active=True).first()
