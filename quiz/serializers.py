@@ -87,3 +87,40 @@ class SubmitAnswerSerializer(serializers.Serializer):
 # Add to serializers.py
 class TopicIntroductionSerializer(serializers.Serializer):
     subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    
+    
+# class TopicSelectionSerializer(serializers.Serializer):
+#     subject = serializers.ChoiceField(choices=["mathematics", "english"])
+#     topic = serializers.CharField()
+
+#     def validate(self, data):
+#         user = self.context['request'].user
+#         subject = data['subject']
+#         topic = data['topic']
+        
+#         try:
+#             topics = GRADE_SUBJECT_CONFIG[user.grade][subject]["topics"]
+#             if topic not in topics:
+#                 raise serializers.ValidationError("Invalid topic for selected subject and grade")
+#         except KeyError:
+#             raise serializers.ValidationError("Invalid subject or grade configuration")
+            
+#         return data
+
+# class SubjectTopicsSerializer(serializers.Serializer):
+#     subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    
+class TopicQuestionRequestSerializer(serializers.Serializer):
+    subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    topic = serializers.CharField()
+    session_id = serializers.UUIDField()
+
+    def validate(self, data):
+        user = self.context['request'].user
+        try:
+            topics = GRADE_SUBJECT_CONFIG[user.grade][data['subject']]["topics"]
+            if data['topic'] not in topics:
+                raise serializers.ValidationError("Invalid topic for subject and grade")
+        except KeyError:
+            raise serializers.ValidationError("Invalid subject configuration")
+        return data

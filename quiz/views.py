@@ -8,8 +8,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord
-from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer
+from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord,UserTopicProgress
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer,TopicQuestionRequestSerializer
 from django.utils import timezone
 from django.db.utils import IntegrityError
 import random
@@ -103,7 +103,7 @@ class LoginAPI(APIView):
     def _calculate_user_stats(self, user):
         from django.db.models import Count, Case, When, IntegerField
 
-        # Corrected annotation syntax
+        # Get statistics from all answered questions
         topic_stats = QuestionRecord.objects.filter(user=user).values(
             'subject', 'topic'
         ).annotate(
@@ -121,7 +121,7 @@ class LoginAPI(APIView):
             )
         )
 
-        # Rest of the method remains the same
+        # Convert to nested dictionary {subject: {topic: stats}}
         stats_dict = {}
         for stat in topic_stats:
             subject = stat['subject']
@@ -131,6 +131,12 @@ class LoginAPI(APIView):
                 'incorrect': stat['incorrect'],
                 'total': stat['correct'] + stat['incorrect']
             }
+
+        # Get user's topic progression data
+        user_topics = UserTopicProgress.objects.filter(user=user)
+        user_topics_dict = {
+            (ut.subject, ut.topic): ut for ut in user_topics
+        }
 
         # Get user progresses for current grade
         user_progresses = UserProgress.objects.filter(user=user, grade=user.grade)
@@ -144,6 +150,7 @@ class LoginAPI(APIView):
             grade_config = GRADE_SUBJECT_CONFIG.get(user.grade, {})
             subject_config = grade_config.get(subject, {})
             display_names = subject_config.get("display_names", {})
+            curriculum_topics = subject_config.get("topics", [])
             
             # Initialize subject entry
             subjects[subject] = {
@@ -153,8 +160,8 @@ class LoginAPI(APIView):
                 'topics': []
             }
 
-            # Process completed topics
-            for topic_key in progress.completed_topics:
+            # Process all curriculum topics
+            for topic_key in curriculum_topics:
                 topic_name = display_names.get(topic_key, topic_key)
                 stats = stats_dict.get(subject, {}).get(topic_key, {
                     'correct': 0,
@@ -162,13 +169,20 @@ class LoginAPI(APIView):
                     'total': 0
                 })
                 
-                # Add topic statistics
-                subjects[subject]['topics'].append({
+                # Get topic progress if exists
+                ut_progress = user_topics_dict.get((subject, topic_key), None)
+                current_level = ut_progress.current_level if ut_progress else None
+                
+                # Build topic entry
+                topic_entry = {
                     'topic': topic_name,
                     'correct': stats['correct'],
                     'incorrect': stats['incorrect'],
-                    'total': stats['total']
-                })
+                    'total': stats['total'],
+                    'current_level': current_level
+                }
+                
+                subjects[subject]['topics'].append(topic_entry)
                 
                 # Update subject totals
                 subjects[subject]['correct'] += stats['correct']
@@ -188,7 +202,6 @@ class LoginAPI(APIView):
             },
             'subjects': subjects
         }
-
 
 class LogoutAPI(APIView):
     permission_classes = [IsAuthenticated]
@@ -213,20 +226,6 @@ class UserProfileAPI(APIView):
     def get(self, request):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
-
-
-from django.contrib.auth import get_user_model
-from .utils.generator import QuestionGenerator
-from .config.curriculum import GRADE_SUBJECT_CONFIG, DIFFICULTY_LEVELS
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from .models import SessionProgress, UserProgress, QuestionRecord, UserSession
-from .serializers import QuestionRequestSerializer
-import uuid
-
-User = get_user_model()
 
 class QuestionAPI(APIView):
     permission_classes = [IsAuthenticated]
@@ -299,49 +298,52 @@ class QuestionAPI(APIView):
         )
 
     def _update_progress(self, progress):
-        # Only check progression if current streak reaches 5
         if progress.current_streak >= 5:
             current_level_index = DIFFICULTY_LEVELS.index(progress.current_level)
             
             if current_level_index < len(DIFFICULTY_LEVELS) - 1:
-                # Move to next difficulty level
+                # Progress to next level
                 progress.current_level = DIFFICULTY_LEVELS[current_level_index + 1]
-                progress.current_streak = 0  # Reset streak for new level
+                progress.current_streak = 0
             else:
-                # Completed all levels - mark topic complete
-                if progress.current_topic not in progress.completed_topics:
-                    progress.completed_topics.append(progress.current_topic)
-                
-                # Get next topic from curriculum
-                grade_config = GRADE_SUBJECT_CONFIG[progress.session.user.grade]
-                subject_config = grade_config[progress.subject]
-                current_topics = subject_config["topics"]
-                
-                try:
-                    current_index = current_topics.index(progress.current_topic)
-                    next_topic = current_topics[current_index + 1] if current_index + 1 < len(current_topics) else None
-                except ValueError:
-                    next_topic = current_topics[0] if current_topics else None
-                
-                if next_topic:
-                    progress.current_topic = next_topic
-                    progress.current_level = DIFFICULTY_LEVELS[0]  # Reset to first level
-                    progress.current_streak = 0  # Reset streak for new topic
+                if progress.is_custom_topic:
+                    # Reset streak but stay on same level for custom topics
+                    progress.current_streak = 0
                 else:
-                    progress.current_topic = "All topics completed"
+                    # Original topic progression logic
+                    if progress.current_topic not in progress.completed_topics:
+                        progress.completed_topics.append(progress.current_topic)
+                    
+                    grade_config = GRADE_SUBJECT_CONFIG[progress.session.user.grade]
+                    subject_config = grade_config[progress.subject]
+                    current_topics = subject_config["topics"]
+                    
+                    try:
+                        current_index = current_topics.index(progress.current_topic)
+                        next_topic = current_topics[current_index + 1] if current_index + 1 < len(current_topics) else None
+                    except ValueError:
+                        next_topic = current_topics[0] if current_topics else None
+                    
+                    if next_topic:
+                        progress.current_topic = next_topic
+                        progress.current_level = DIFFICULTY_LEVELS[0]
+                        progress.current_streak = 0
+                    else:
+                        progress.current_topic = "All topics completed"
 
             progress.save()
             
-            # Update user progress
-            user_progress = UserProgress.objects.get(
-                user=progress.session.user,
-                grade=progress.session.user.grade,
-                subject=progress.subject
-            )
-            user_progress.current_topic = progress.current_topic
-            user_progress.current_level = progress.current_level
-            user_progress.completed_topics = progress.completed_topics.copy()
-            user_progress.save()
+            # Update user progress only for non-custom topics
+            if not progress.is_custom_topic:
+                user_progress = UserProgress.objects.get(
+                    user=progress.session.user,
+                    grade=progress.session.user.grade,
+                    subject=progress.subject
+                )
+                user_progress.current_topic = progress.current_topic
+                user_progress.current_level = progress.current_level
+                user_progress.completed_topics = progress.completed_topics.copy()
+                user_progress.save()
 
     def _progress_status(self, progress):
         return {
@@ -493,6 +495,26 @@ class SubmitAnswerAPI(APIView):
             user_progress.current_streak = 0  # Reset streak
 
         user_progress.save()
+        
+        # New: Update topic progress
+        topic_progress = UserTopicProgress.objects.get(
+            user=request.user,
+            subject=question.subject,
+            topic=question.topic
+        )
+        
+        if is_correct:
+            topic_progress.correct += 1
+        else:
+            topic_progress.incorrect += 1
+        
+        # Handle level progression for topic practice
+        if is_correct and (topic_progress.correct + topic_progress.incorrect) % 5 == 0:
+            current_idx = DIFFICULTY_LEVELS.index(topic_progress.current_level)
+            if current_idx < len(DIFFICULTY_LEVELS) - 1:
+                topic_progress.current_level = DIFFICULTY_LEVELS[current_idx + 1]
+        
+        topic_progress.save()
 
         return Response({
             'is_correct': is_correct,
@@ -507,6 +529,11 @@ class SubmitAnswerAPI(APIView):
             'total_stats': {
                 'correct': user_progress.total_correct,
                 'incorrect': user_progress.total_incorrect
+            },
+            'topic_stats': {
+                'correct': topic_progress.correct,
+                'incorrect': topic_progress.incorrect,
+                'current_level': topic_progress.current_level
             }
         })
 
@@ -642,3 +669,128 @@ class TopicIntroductionAPI(APIView):
             '. '.join(sentences[:mid_point]) + '.',
             '. '.join(sentences[mid_point:]) + '.'
         ]
+        
+class SubjectTopicsAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, subject):
+        if subject not in ["mathematics", "english"]:
+            return Response({"error": "Invalid subject"}, status=400)
+
+        try:
+            grade_config = GRADE_SUBJECT_CONFIG[request.user.grade][subject]
+            topics = grade_config["topics"]
+            display_names = grade_config["display_names"]
+            
+            return Response([{
+                "topic_key": topic,
+                "topic_name": display_names.get(topic, topic)
+            } for topic in topics])
+            
+        except KeyError:
+            return Response({"error": "Subject not available for this grade"}, status=400)
+
+# class SelectTopicAPI(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         serializer = TopicSelectionSerializer(data=request.data, context={'request': request})
+#         if not serializer.is_valid():
+#             return Response(serializer.errors, status=400)
+
+#         try:
+#             session = UserSession.objects.get(user=request.user, is_active=True)
+#             subject = serializer.validated_data['subject']
+#             topic = serializer.validated_data['topic']
+            
+#             progress, _ = SessionProgress.objects.update_or_create(
+#                 session=session,
+#                 subject=subject,
+#                 defaults={
+#                     'current_topic': topic,
+#                     'current_level': DIFFICULTY_LEVELS[0],
+#                     'is_custom_topic': True,
+#                     'current_streak': 0
+#                 }
+#             )
+            
+#             return Response({
+#                 "status": f"Topic {topic} selected for {subject}",
+#                 "current_level": progress.current_level,
+#                 "current_streak": progress.current_streak
+#             })
+            
+#         except UserSession.DoesNotExist:
+#             return Response({"error": "No active session"}, status=400)
+        
+class TopicQuestionAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TopicQuestionRequestSerializer(
+            data=request.data, 
+            context={'request': request}
+        )
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        
+        try:
+            session = UserSession.objects.get(
+                session_id=data['session_id'],
+                user=request.user,
+                is_active=True
+            )
+            
+            # Get or create topic progress
+            topic_progress, _ = UserTopicProgress.objects.get_or_create(
+                user=request.user,
+                subject=data['subject'],
+                topic=data['topic'],
+                defaults={'current_level': DIFFICULTY_LEVELS[0]}
+            )
+
+            # Generate question
+            generator = QuestionGenerator()
+            question = generator.generate_question(
+                user=request.user,
+                grade=request.user.grade,
+                subject=data['subject'],
+                topic=data['topic'],
+                level=topic_progress.current_level
+            )
+
+            # Create question record
+            new_question_id = uuid.uuid4()
+            QuestionRecord.objects.create(
+                user=request.user,
+                session=session,
+                question_id=new_question_id,
+                question_text=question['question_text'],
+                options=question['options'],
+                correct_answer=question['correct_answer'],
+                subject=data['subject'],
+                topic=data['topic'],
+                level=topic_progress.current_level
+            )
+
+            return Response({
+                'question': question['question_text'],
+                'options': question['options'],
+                'hint': question['hint'],
+                'explanation': question['explanation'],
+                'question_id': str(new_question_id),
+                'metadata': {
+                    'type': 'topic_practice',
+                    'topic': data['topic'],
+                    'current_level': topic_progress.current_level,
+                    'current_streak': 0  # Not used in topic practice
+                }
+            })
+
+        except UserSession.DoesNotExist:
+            return Response({'error': 'Invalid session'}, status=400)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)

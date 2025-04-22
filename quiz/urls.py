@@ -8,7 +8,10 @@ from .views import (
     UserProfileAPI,
     RevisionQuestionAPI,
     SubmitAnswerAPI,
-    TopicIntroductionAPI
+    TopicIntroductionAPI,
+    SubjectTopicsAPI,
+
+    TopicQuestionAPI
 )
 
 urlpatterns = [
@@ -20,4 +23,7 @@ urlpatterns = [
     path('auth/profile/', UserProfileAPI.as_view(), name='user-profile'),
     path('submit-answer/', SubmitAnswerAPI.as_view(), name='submit-answer'),
     path('topic-introduction/', TopicIntroductionAPI.as_view(), name='topic-introduction'),
+    path('subject-topics/<str:subject>/', SubjectTopicsAPI.as_view(), name='subject-topics'),
+    # path('select-topic/', SelectTopicAPI.as_view(), name='select-topic'),
+    path('topic-questions/', TopicQuestionAPI.as_view(), name='topic-questions'),
 ]

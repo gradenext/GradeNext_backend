@@ -64,7 +64,8 @@ class SessionProgress(models.Model):
     incorrect_answers = models.PositiveIntegerField(default=0)
     completed_topics = models.JSONField(default=list)
     current_streak = models.PositiveIntegerField(default=0)  # Add this
-    max_streak = models.PositiveIntegerField(default=0)  
+    max_streak = models.PositiveIntegerField(default=0)
+    # is_custom_topic = models.BooleanField(default=False)  
 
     def get_next_level(self):
         current_index = DIFFICULTY_LEVELS.index(self.current_level)
@@ -146,3 +147,16 @@ class UserQuestionHistory(models.Model):
         indexes = [
             models.Index(fields=['user', 'question_signature'])
         ]
+        
+class UserTopicProgress(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    subject = models.CharField(max_length=20)
+    topic = models.CharField(max_length=100)
+    correct = models.PositiveIntegerField(default=0)
+    incorrect = models.PositiveIntegerField(default=0)
+    current_level = models.CharField(max_length=20, choices=[(l, l) for l in DIFFICULTY_LEVELS], default=DIFFICULTY_LEVELS[0])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'subject', 'topic')
