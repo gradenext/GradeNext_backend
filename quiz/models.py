@@ -123,6 +123,11 @@ class UserProgress(models.Model):
         return f"{self.user.username} - Grade {self.grade} {self.subject}"
     
 class QuestionRecord(models.Model):
+    QUESTION_TYPES = [
+        ('regular', 'Regular Curriculum'),
+        ('revision', 'Revision'),
+        ('topic_practice', 'Topic Practice')
+    ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     session = models.ForeignKey(UserSession, on_delete=models.CASCADE)
     question_id = models.UUIDField(default=uuid.uuid4, unique=True)
@@ -135,6 +140,7 @@ class QuestionRecord(models.Model):
     subject = models.CharField(max_length=20)
     topic = models.CharField(max_length=100)
     level = models.CharField(max_length=20)
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES, default='regular')
     
 
 class UserQuestionHistory(models.Model):

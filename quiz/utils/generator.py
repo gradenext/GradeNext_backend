@@ -75,7 +75,11 @@ class QuestionGenerator:
         raise RuntimeError("Exhausted all generation attempts")
 
     def _build_prompt(self, grade, subject, topic, level, revision, seen_hashes):
-        subtopics = random.sample(SUBJECT_TOPICS[subject][topic], 3)
+        # Get subtopics safely
+        all_subtopics = SUBJECT_TOPICS[subject][topic]
+        num_subtopics = min(3, len(all_subtopics))  # Never take more than available
+        subtopics = random.sample(all_subtopics, num_subtopics) if all_subtopics else []
+    
         return f"""Generate a unique {level} difficulty {subject} question for grade {grade} students in JSON format.
     Topic: {topic}
     Subtopics: {', '.join(subtopics)}

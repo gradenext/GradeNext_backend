@@ -95,10 +95,40 @@ class LoginAPI(APIView):
                 'token': token.key,
                 'account_id': user.account_id,
                 'session_id': str(new_session.session_id),
-                'user': UserProfileSerializer(user).data,
-                'user_stats': user_stats
+                
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    
+
+class LogoutAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        session_id = request.data.get('session_id')
+        try:
+            session = UserSession.objects.get(
+                session_id=session_id, user=request.user)
+            session.is_active = False
+            session.end_time = timezone.now()
+            session.save()
+            request.auth.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except UserSession.DoesNotExist:
+            return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        serializer = UserProfileSerializer(user)
+        user_stats = self._calculate_user_stats(user)
+        return Response({
+            'user': serializer.data,
+            'user_stats': user_stats
+        })
 
     def _calculate_user_stats(self, user):
         from django.db.models import Count, Case, When, IntegerField
@@ -203,30 +233,6 @@ class LoginAPI(APIView):
             'subjects': subjects
         }
 
-class LogoutAPI(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        session_id = request.data.get('session_id')
-        try:
-            session = UserSession.objects.get(
-                session_id=session_id, user=request.user)
-            session.is_active = False
-            session.end_time = timezone.now()
-            session.save()
-            request.auth.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except UserSession.DoesNotExist:
-            return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UserProfileAPI(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        serializer = UserProfileSerializer(request.user)
-        return Response(serializer.data)
-
 class QuestionAPI(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -258,16 +264,19 @@ class QuestionAPI(APIView):
             new_question_id = uuid.uuid4()
             
             QuestionRecord.objects.create(
-                user=request.user,
-                session=session,
-                question_id=new_question_id,
-                question_text=question_data['question_text'],
-                options=question_data['options'],
-                correct_answer=question_data['correct_answer'],
-                subject=data['subject'],
-                topic=session_progress.current_topic,
-                level=session_progress.current_level
-            )
+            user=request.user,
+            session=session,
+            question_id=new_question_id,
+            question_text=question_data['question_text'],
+            options=question_data['options'],
+            correct_answer=question_data['correct_answer'],
+            subject=data['subject'],
+            topic=session_progress.current_topic,
+            level=session_progress.current_level,
+            question_type='regular'  # Add this line
+        )
+            
+        
             
             self._update_progress(session_progress)
             
@@ -302,49 +311,42 @@ class QuestionAPI(APIView):
             current_level_index = DIFFICULTY_LEVELS.index(progress.current_level)
             
             if current_level_index < len(DIFFICULTY_LEVELS) - 1:
-                # Progress to next level
                 progress.current_level = DIFFICULTY_LEVELS[current_level_index + 1]
                 progress.current_streak = 0
             else:
-                if progress.is_custom_topic:
-                    # Reset streak but stay on same level for custom topics
+                # Original topic progression logic
+                if progress.current_topic not in progress.completed_topics:
+                    progress.completed_topics.append(progress.current_topic)
+                
+                grade_config = GRADE_SUBJECT_CONFIG[progress.session.user.grade]
+                subject_config = grade_config[progress.subject]
+                current_topics = subject_config["topics"]
+                
+                try:
+                    current_index = current_topics.index(progress.current_topic)
+                    next_topic = current_topics[current_index + 1] if current_index + 1 < len(current_topics) else None
+                except ValueError:
+                    next_topic = current_topics[0] if current_topics else None
+                
+                if next_topic:
+                    progress.current_topic = next_topic
+                    progress.current_level = DIFFICULTY_LEVELS[0]
                     progress.current_streak = 0
                 else:
-                    # Original topic progression logic
-                    if progress.current_topic not in progress.completed_topics:
-                        progress.completed_topics.append(progress.current_topic)
-                    
-                    grade_config = GRADE_SUBJECT_CONFIG[progress.session.user.grade]
-                    subject_config = grade_config[progress.subject]
-                    current_topics = subject_config["topics"]
-                    
-                    try:
-                        current_index = current_topics.index(progress.current_topic)
-                        next_topic = current_topics[current_index + 1] if current_index + 1 < len(current_topics) else None
-                    except ValueError:
-                        next_topic = current_topics[0] if current_topics else None
-                    
-                    if next_topic:
-                        progress.current_topic = next_topic
-                        progress.current_level = DIFFICULTY_LEVELS[0]
-                        progress.current_streak = 0
-                    else:
-                        progress.current_topic = "All topics completed"
+                    progress.current_topic = "All topics completed"
 
             progress.save()
             
-            # Update user progress only for non-custom topics
-            if not progress.is_custom_topic:
-                user_progress = UserProgress.objects.get(
-                    user=progress.session.user,
-                    grade=progress.session.user.grade,
-                    subject=progress.subject
-                )
-                user_progress.current_topic = progress.current_topic
-                user_progress.current_level = progress.current_level
-                user_progress.completed_topics = progress.completed_topics.copy()
-                user_progress.save()
-
+            # Always update user progress for regular flow
+            user_progress = UserProgress.objects.get(
+                user=progress.session.user,
+                grade=progress.session.user.grade,
+                subject=progress.subject
+            )
+            user_progress.current_topic = progress.current_topic
+            user_progress.current_level = progress.current_level
+            user_progress.completed_topics = progress.completed_topics.copy()
+            user_progress.save()
     def _progress_status(self, progress):
         return {
             'current_topic': progress.current_topic,
@@ -451,16 +453,20 @@ class SubmitAnswerAPI(APIView):
         # Normalize answers
         user_answer = str(data['user_answer']).strip()
         correct_answer = str(question.correct_answer).strip()
-
-        # Remove any residual labels from user answer
-        user_answer = re.sub(r'^[A-D][).\s]*', '', user_answer).strip()
-        
         is_correct = user_answer == correct_answer
 
         # Update question record
         question.user_answer = user_answer
         question.is_correct = is_correct
         question.save()
+
+        # Handle different question types
+        if question.question_type == 'topic_practice':
+            return self._handle_topic_practice(question, is_correct)
+        else:
+            return self._handle_regular_progress(question, is_correct)
+
+    def _handle_regular_progress(self, question, is_correct):
         # Update session progress
         session_progress = SessionProgress.objects.get(
             session=question.session,
@@ -474,14 +480,14 @@ class SubmitAnswerAPI(APIView):
                 session_progress.max_streak = session_progress.current_streak
         else:
             session_progress.incorrect_answers += 1
-            session_progress.current_streak = 0  # Reset streak on wrong answer
+            session_progress.current_streak = 0
 
         session_progress.save()
 
         # Update user progress
         user_progress = UserProgress.objects.get(
-            user=request.user,
-            grade=request.user.grade,
+            user=question.user,
+            grade=question.user.grade,
             subject=question.subject
         )
         
@@ -492,22 +498,44 @@ class SubmitAnswerAPI(APIView):
                 user_progress.max_streak = user_progress.current_streak
         else:
             user_progress.total_incorrect += 1
-            user_progress.current_streak = 0  # Reset streak
+            user_progress.current_streak = 0
 
         user_progress.save()
-        
-        # New: Update topic progress
-        topic_progress = UserTopicProgress.objects.get(
-            user=request.user,
+
+        return Response({
+            'is_correct': is_correct,
+            'correct_answer': question.correct_answer,
+            'user_answer': question.user_answer,
+            'current_streak': session_progress.current_streak,
+            'max_streak': session_progress.max_streak,
+            'session_stats': {
+                'correct': session_progress.correct_answers,
+                'incorrect': session_progress.incorrect_answers
+            },
+            'total_stats': {
+                'correct': user_progress.total_correct,
+                'incorrect': user_progress.total_incorrect
+            }
+        })
+
+    def _handle_topic_practice(self, question, is_correct):
+        # Update topic progress only
+        topic_progress, _ = UserTopicProgress.objects.get_or_create(
+            user=question.user,
             subject=question.subject,
-            topic=question.topic
+            topic=question.topic,
+            defaults={
+                'correct': 0,
+                'incorrect': 0,
+                'current_level': DIFFICULTY_LEVELS[0]
+            }
         )
-        
+
         if is_correct:
             topic_progress.correct += 1
         else:
             topic_progress.incorrect += 1
-        
+
         # Handle level progression for topic practice
         if is_correct and (topic_progress.correct + topic_progress.incorrect) % 5 == 0:
             current_idx = DIFFICULTY_LEVELS.index(topic_progress.current_level)
@@ -519,60 +547,13 @@ class SubmitAnswerAPI(APIView):
         return Response({
             'is_correct': is_correct,
             'correct_answer': question.correct_answer,
-            'user_answer': user_answer,
-            'current_streak': session_progress.current_streak,
-            'max_streak': session_progress.max_streak,
-            'session_stats': {
-                'correct': session_progress.correct_answers,
-                'incorrect': session_progress.incorrect_answers
-            },
-            'total_stats': {
-                'correct': user_progress.total_correct,
-                'incorrect': user_progress.total_incorrect
-            },
+            'user_answer': question.user_answer,
             'topic_stats': {
                 'correct': topic_progress.correct,
                 'incorrect': topic_progress.incorrect,
                 'current_level': topic_progress.current_level
             }
         })
-
-    def _check_progression(self, progress):
-        from quiz.config.curriculum import GRADE_SUBJECT_CONFIG
-
-        total_answered = progress.correct_answers + progress.incorrect_answers
-
-        if total_answered % 5 == 0:
-            next_level = progress.get_next_level()
-            if next_level:
-                progress.current_level = next_level
-            else:
-                if progress.current_topic not in progress.completed_topics:
-                    progress.completed_topics.append(progress.current_topic)
-                topics = GRADE_SUBJECT_CONFIG[progress.session.user.grade][progress.subject]["topics"]
-                try:
-                    current_index = topics.index(progress.current_topic)
-                    next_topic = topics[current_index +
-                                        1] if current_index + 1 < len(topics) else None
-
-                except ValueError:
-                    next_topic = topics[0] if topics else None
-                if next_topic:
-                    progress.current_topic = next_topic
-                    progress.current_level = DIFFICULTY_LEVELS[0]
-                else:
-                    progress.current_topic = "All topics completed"
-                    progress.current_topic = topics[current_index + 1]
-            progress.save()
-            user_progress = UserProgress.objects.get(
-                user=progress.session.user,
-                grade=progress.session.user.grade,
-                subject=progress.subject
-            )
-            user_progress.current_topic = progress.current_topic
-            user_progress.current_level = progress.current_level
-            user_progress.completed_topics = progress.completed_topics
-            user_progress.save()
 
 
 # Add to views.py
@@ -773,7 +754,8 @@ class TopicQuestionAPI(APIView):
                 correct_answer=question['correct_answer'],
                 subject=data['subject'],
                 topic=data['topic'],
-                level=topic_progress.current_level
+                level=topic_progress.current_level,
+                question_type='topic_practice'
             )
 
             return Response({
