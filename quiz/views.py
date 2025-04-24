@@ -86,9 +86,6 @@ class LoginAPI(APIView):
                     incorrect_answers=0,
                     completed_topics=user_progress.completed_topics.copy()
                 )
-
-            # Calculate comprehensive user statistics
-            user_stats = self._calculate_user_stats(user)
             
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
