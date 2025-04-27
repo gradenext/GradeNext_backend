@@ -16,7 +16,10 @@ import random
 import uuid
 import json
 import re
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -57,44 +60,14 @@ class LoginAPI(APIView):
         user = authenticate(email=email, password=password)
 
         if user:
-            # Close existing sessions
-            UserSession.objects.filter(
-                user=user, is_active=True).update(is_active=False)
-
-            # Create new session
-            new_session = UserSession.objects.create(user=user)
-
-            # Initialize progress for each enrolled subject
-            for subject in user.courses:
-                user_progress, created = UserProgress.objects.get_or_create(
-                    user=user,
-                    grade=user.grade,
-                    subject=subject,
-                    defaults={
-                        'current_topic': GRADE_SUBJECT_CONFIG[user.grade][subject]["topics"][0],
-                        'completed_topics': [],
-                        'current_level': DIFFICULTY_LEVELS[0]
-                    }
-                )
-
-                SessionProgress.objects.create(
-                    session=new_session,
-                    subject=subject,
-                    current_topic=user_progress.current_topic,
-                    current_level=user_progress.current_level,
-                    correct_answers=0,
-                    incorrect_answers=0,
-                    completed_topics=user_progress.completed_topics.copy()
-                )
-            
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
                 'account_id': user.account_id,
-                'session_id': str(new_session.session_id),
-                
-            })
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=status.HTTP_200_OK)
+            
+        return Response({'error': 'Invalid credentials'}, 
+                      status=status.HTTP_401_UNAUTHORIZED)
 
     
 
@@ -114,6 +87,102 @@ class LogoutAPI(APIView):
         except UserSession.DoesNotExist:
             return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
 
+class SessionAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Create a new learning session
+        Returns: {
+            "session_id": "uuid",
+            "expires_at": "iso8601",
+            "subjects": ["mathematics", "english"]
+        }
+        """
+        try:
+            user = request.user
+            
+            # Close any existing active sessions
+            UserSession.objects.filter(user=user, is_active=True).update(
+                is_active=False, 
+            )
+
+            # Create new session
+            new_session = UserSession.objects.create(user=user)
+
+            # Initialize progress for each enrolled subject
+            initialized_subjects = []
+            for subject in user.courses:
+                # Get or create user progress
+                user_progress, created = UserProgress.objects.get_or_create(
+                    user=user,
+                    grade=user.grade,
+                    subject=subject,
+                    defaults={
+                        'current_topic': GRADE_SUBJECT_CONFIG[user.grade][subject]["topics"][0],
+                        'completed_topics': [],
+                        'current_level': DIFFICULTY_LEVELS[0]
+                    }
+                )
+
+                # Create session progress
+                SessionProgress.objects.create(
+                    session=new_session,
+                    subject=subject,
+                    current_topic=user_progress.current_topic,
+                    current_level=user_progress.current_level,
+                    correct_answers=0,
+                    incorrect_answers=0,
+                    completed_topics=user_progress.completed_topics.copy()
+                )
+                initialized_subjects.append(subject)
+
+            return Response({
+                'session_id': str(new_session.session_id),
+                'subjects': initialized_subjects
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Session creation failed: {str(e)}")
+            return Response({'error': 'Session creation failed'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ExpireSessionAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id):
+        """
+        Expire a specific session
+        """
+        try:
+            session = UserSession.objects.get(
+                session_id=session_id,
+                user=request.user,
+                is_active=True
+            )
+            
+            session.is_active = False
+            session.end_time = timezone.now()
+            session.save()
+            
+            # Update user progress from session progress
+            for progress in session.progresses.all():
+                UserProgress.objects.filter(
+                    user=request.user,
+                    grade=request.user.grade,
+                    subject=progress.subject
+                ).update(
+                    current_topic=progress.current_topic,
+                    current_level=progress.current_level,
+                    completed_topics=progress.completed_topics
+                )
+
+            return Response({'status': 'session expired'}, 
+                          status=status.HTTP_200_OK)
+            
+        except UserSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
 
 class UserProfileAPI(APIView):
     permission_classes = [IsAuthenticated]
@@ -516,7 +585,7 @@ class SubmitAnswerAPI(APIView):
         })
 
     def _handle_topic_practice(self, question, is_correct):
-        # Update topic progress only
+        # Update topic progress
         topic_progress, _ = UserTopicProgress.objects.get_or_create(
             user=question.user,
             subject=question.subject,
@@ -541,6 +610,26 @@ class SubmitAnswerAPI(APIView):
         
         topic_progress.save()
 
+        # Get or create session progress for the subject
+        session_progress, _ = SessionProgress.objects.get_or_create(
+            session=question.session,
+            subject=question.subject,
+            defaults={
+                'current_topic': question.topic,
+                'current_level': DIFFICULTY_LEVELS[0],
+                'correct_answers': 0,
+                'incorrect_answers': 0,
+                'completed_topics': []
+            }
+        )
+
+        # Update session stats
+        if is_correct:
+            session_progress.correct_answers += 1
+        else:
+            session_progress.incorrect_answers += 1
+        session_progress.save()
+
         return Response({
             'is_correct': is_correct,
             'correct_answer': question.correct_answer,
@@ -549,6 +638,10 @@ class SubmitAnswerAPI(APIView):
                 'correct': topic_progress.correct,
                 'incorrect': topic_progress.incorrect,
                 'current_level': topic_progress.current_level
+            },
+            'session_stats': {
+                'correct': session_progress.correct_answers,
+                'incorrect': session_progress.incorrect_answers
             }
         })
 
@@ -722,6 +815,19 @@ class TopicQuestionAPI(APIView):
                 is_active=True
             )
             
+            # Ensure session progress exists for this subject
+            SessionProgress.objects.get_or_create(
+                session=session,
+                subject=data['subject'],
+                defaults={
+                    'current_topic': data['topic'],
+                    'current_level': DIFFICULTY_LEVELS[0],
+                    'correct_answers': 0,
+                    'incorrect_answers': 0,
+                    'completed_topics': []
+                }
+            )
+
             # Get or create topic progress
             topic_progress, _ = UserTopicProgress.objects.get_or_create(
                 user=request.user,

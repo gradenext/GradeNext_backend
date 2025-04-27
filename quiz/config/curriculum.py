@@ -685,7 +685,7 @@ SUBJECT_TOPICS = {
 DIFFICULTY_LEVELS = [
     "very_easy",
     "easy",
-    # "medium",
-    # "challenging",
-    # "hard",
+    "medium",
+    "challenging",
+    "hard",
 ]

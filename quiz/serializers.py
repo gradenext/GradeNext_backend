@@ -124,3 +124,7 @@ class TopicQuestionRequestSerializer(serializers.Serializer):
         except KeyError:
             raise serializers.ValidationError("Invalid subject configuration")
         return data
+    
+class SessionSerializer(serializers.Serializer):
+    subject = serializers.ChoiceField(choices=["mathematics", "english"], required=False)
+    topic = serializers.CharField(required=False)

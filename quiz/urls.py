@@ -10,8 +10,9 @@ from .views import (
     SubmitAnswerAPI,
     TopicIntroductionAPI,
     SubjectTopicsAPI,
-
-    TopicQuestionAPI
+    TopicQuestionAPI,
+    SessionAPI,
+    ExpireSessionAPI,
 )
 
 urlpatterns = [
@@ -26,4 +27,6 @@ urlpatterns = [
     path('subject-topics/<str:subject>/', SubjectTopicsAPI.as_view(), name='subject-topics'),
     # path('select-topic/', SelectTopicAPI.as_view(), name='select-topic'),
     path('topic-questions/', TopicQuestionAPI.as_view(), name='topic-questions'),
+    path('sessions/', SessionAPI.as_view(), name='create-session'),
+    path('sessions/<uuid:session_id>/expire/', ExpireSessionAPI.as_view(), name='expire-session'),
 ]
