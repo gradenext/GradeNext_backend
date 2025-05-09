@@ -1,6 +1,6 @@
 # quiz/serializers.py
 from rest_framework import serializers
-from .models import CustomUser,UserSession,UserProgress
+from .models import CustomUser,UserSession,UserProgress,PLAN_CHOICES
 from quiz.config.curriculum import GRADE_SUBJECT_CONFIG,DIFFICULTY_LEVELS
 
 # quiz/serializers.py
@@ -8,20 +8,30 @@ from rest_framework import serializers
 from quiz.config.curriculum import GRADE_SUBJECT_CONFIG
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    plan = serializers.ChoiceField(choices=PLAN_CHOICES, write_only=True)
     password = serializers.CharField(write_only=True, min_length=6)
     confirm_password = serializers.CharField(write_only=True)
+    coupon_code = serializers.CharField(write_only=True, required=False,allow_blank=True)
 
     class Meta:
         model = CustomUser
         fields = [
             'email', 'password', 'confirm_password', 'student_name',
             'parent_name', 'gender', 'grade', 'courses', 'country',
-            'state', 'zip_code'
+            'state', 'zip_code','plan','coupon_code'
         ]
 
     def validate(self, data):
         if data['password'] != data.pop('confirm_password'):
             raise serializers.ValidationError("Passwords do not match")
+        if data['plan'] not in [choice[0] for choice in PLAN_CHOICES]:
+            raise serializers.ValidationError("Invalid plan selected")
+        coupon_code = data.pop('coupon_code', None)
+        if coupon_code:
+            if coupon_code != "NG100":  # Hardcoded special coupon
+                raise serializers.ValidationError("Invalid coupon code")
+            data['plan'] = 'enterprise'  # Override plan to enterprise
+        
         return data
 
     def create(self, validated_data):
@@ -29,11 +39,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     
 class UserProfileSerializer(serializers.ModelSerializer):
+    plan = serializers.CharField(source='get_plan_display')
+    
     class Meta:
         model = CustomUser
         fields = [
             'account_id', 'email', 'student_name', 'parent_name',
-            'gender', 'grade', 'courses', 'country', 'state', 'zip_code'
+            'gender', 'grade', 'courses', 'country', 'state', 
+            'zip_code', 'plan'
         ]
         read_only_fields = ['account_id', 'email']
 

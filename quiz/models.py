@@ -4,6 +4,7 @@ from django.conf import settings
 from quiz.config.curriculum import DIFFICULTY_LEVELS
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin ,BaseUserManager
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
@@ -21,7 +22,29 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
 
+PLAN_CHOICES = [
+    ('basic', 'Basic'),
+    ('pro', 'Pro'),
+    ('enterprise', 'Enterprise'),
+]
+class Coupon(models.Model):
+    code = models.CharField(max_length=20, unique=True)
+    plan_type = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    valid_from = models.DateTimeField()
+    valid_to = models.DateTimeField()
+    max_uses = models.PositiveIntegerField(default=1)
+    times_used = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    def is_valid(self):
+        now = timezone.now()
+        return (
+            self.is_active and
+            self.valid_from <= now <= self.valid_to and
+            self.times_used < self.max_uses
+        )
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+
     account_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     email = models.EmailField(unique=True)
     student_name = models.CharField(max_length=255)
@@ -34,6 +57,17 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     zip_code = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    plan = models.CharField(
+        max_length=20,
+        choices=PLAN_CHOICES,
+        default='basic'
+    )
+    applied_coupon = models.ForeignKey(
+        Coupon, 
+        null=True, 
+        blank=True, 
+        on_delete=models.SET_NULL
+    )
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['student_name', 'parent_name', 'gender', 'grade']
@@ -43,7 +77,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-    
+
     
 class UserSession(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
@@ -166,3 +200,5 @@ class UserTopicProgress(models.Model):
 
     class Meta:
         unique_together = ('user', 'subject', 'topic')
+        
+        

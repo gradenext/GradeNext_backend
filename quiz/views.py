@@ -17,6 +17,7 @@ import uuid
 import json
 import re
 import logging
+from .utils.coupons import validate_coupon
 
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,15 @@ class RegisterAPI(APIView):
         if serializer.is_valid():
             # Remove password confirmation before user creation
             validated_data = serializer.validated_data.copy()
+            plan = validated_data.pop('plan')
             password = validated_data.pop('password')
             validated_data.pop('confirm_password', None)
+            coupon = validate_coupon(validated_data.get('coupon_code'))
+            if coupon:
+                validated_data['plan'] = coupon.plan_type
+                validated_data['applied_coupon'] = coupon
+                coupon.times_used += 1
+                coupon.save()
 
             try:
                 user = CustomUser.objects.create_user(
@@ -41,6 +49,8 @@ class RegisterAPI(APIView):
                     **validated_data
                 )
                 token = Token.objects.create(user=user)
+                user.plan = plan
+                user.save()
                 return Response({
                     'token': token.key,
                     'account_id': user.account_id,
@@ -308,8 +318,12 @@ class QuestionAPI(APIView):
             context={'request': request}
         )
         
+        
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        if request.user.plan not in ['basic', 'pro', 'enterprise']:
+            return Response({'error': 'No active plan'}, status=403)
 
         data = serializer.validated_data
         session_id = request.data.get('session_id')
@@ -433,6 +447,9 @@ class RevisionQuestionAPI(APIView):
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        if request.user.plan not in ['pro', 'enterprise']:
+            return Response({'error': 'Pro plan required for revisions'}, status=403)
 
         data = serializer.validated_data
         session_id = data['session_id']
@@ -805,6 +822,9 @@ class TopicQuestionAPI(APIView):
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        if request.user.plan != 'enterprise':
+            return Response({'error': 'Enterprise plan required for topic practice'}, status=403)
 
         data = serializer.validated_data
         
