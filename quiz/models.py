@@ -43,6 +43,18 @@ class Coupon(models.Model):
             self.valid_from <= now <= self.valid_to and
             self.times_used < self.max_uses
         )
+        
+class OTPVerification(models.Model):
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+    purpose = models.CharField(max_length=20, default='registration')
+    registration_data = models.JSONField(null=True, blank=True)
+
+    def is_expired(self):
+        from django.utils import timezone
+        return (timezone.now() - self.created_at).total_seconds() > 900
 class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     account_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -57,6 +69,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     zip_code = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)  
     plan = models.CharField(
         max_length=20,
         choices=PLAN_CHOICES,

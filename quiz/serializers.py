@@ -24,6 +24,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data['password'] != data.pop('confirm_password'):
             raise serializers.ValidationError("Passwords do not match")
+        
         if data['plan'] not in [choice[0] for choice in PLAN_CHOICES]:
             raise serializers.ValidationError("Invalid plan selected")
         coupon_code = data.pop('coupon_code', None)
@@ -37,7 +38,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return CustomUser.objects.create_user(**validated_data)
     
-    
+# Add these new serializers
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+    new_password = serializers.CharField(min_length=6, write_only=True)
 class UserProfileSerializer(serializers.ModelSerializer):
     plan = serializers.CharField(source='get_plan_display')
     

@@ -13,6 +13,9 @@ from .views import (
     TopicQuestionAPI,
     SessionAPI,
     ExpireSessionAPI,
+    VerifyOTPAPI,
+    ForgotPasswordAPI,
+    ResetPasswordAPI,
 )
 
 urlpatterns = [
@@ -29,4 +32,7 @@ urlpatterns = [
     path('topic-questions/', TopicQuestionAPI.as_view(), name='topic-questions'),
     path('sessions/', SessionAPI.as_view(), name='create-session'),
     path('sessions/<uuid:session_id>/expire/', ExpireSessionAPI.as_view(), name='expire-session'),
+    path('auth/verify-otp/', VerifyOTPAPI.as_view(), name='verify-otp'),
+    path('auth/forgot-password/', ForgotPasswordAPI.as_view(), name='forgot-password'),
+    path('auth/reset-password/', ResetPasswordAPI.as_view(), name='reset-password'),
 ]

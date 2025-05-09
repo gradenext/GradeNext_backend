@@ -8,8 +8,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord,UserTopicProgress
-from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer,TopicQuestionRequestSerializer
+from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord,UserTopicProgress,OTPVerification
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer,TopicQuestionRequestSerializer,VerifyOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
 from django.utils import timezone
 from django.db.utils import IntegrityError
 import random
@@ -18,6 +18,7 @@ import json
 import re
 import logging
 from .utils.coupons import validate_coupon
+from .utils.email import send_otp_email
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ class RegisterAPI(APIView):
         if serializer.is_valid():
             # Remove password confirmation before user creation
             validated_data = serializer.validated_data.copy()
-            plan = validated_data.pop('plan')
             password = validated_data.pop('password')
             validated_data.pop('confirm_password', None)
             coupon = validate_coupon(validated_data.get('coupon_code'))
@@ -42,6 +42,34 @@ class RegisterAPI(APIView):
                 validated_data['applied_coupon'] = coupon
                 coupon.times_used += 1
                 coupon.save()
+                
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            
+            # Generate OTP
+            otp = str(random.randint(100000, 999999))
+            
+            # Create or update OTP record
+            OTPVerification.objects.filter(email=email, purpose='registration').delete()
+            otp_record = OTPVerification.objects.create(
+                email=email,
+                otp=otp,
+                purpose='registration',
+                registration_data={
+                    'user_data': validated_data,
+                    'password': password
+                }
+            )
+            
+            
+            # Send OTP email
+            if send_otp_email(email, otp_record.otp):
+                return Response({
+                    'status': 'OTP sent',
+                    'email': email,
+                    'message': 'Check your email for verification OTP'
+                }, status=status.HTTP_200_OK)
+        
 
             try:
                 user = CustomUser.objects.create_user(
@@ -49,7 +77,7 @@ class RegisterAPI(APIView):
                     **validated_data
                 )
                 token = Token.objects.create(user=user)
-                user.plan = plan
+                user.plan = validated_data.plan
                 user.save()
                 return Response({
                     'token': token.key,
@@ -60,7 +88,116 @@ class RegisterAPI(APIView):
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class VerifyOTPAPI(APIView):
+    permission_classes = [AllowAny]
 
+    def post(self, request):
+        serializer = VerifyOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            otp = serializer.validated_data['otp']
+            
+            try:
+                otp_record = OTPVerification.objects.get(
+                    email=email, 
+                    otp=otp,
+                    purpose='registration',
+                    is_verified=False
+                )
+                
+                if otp_record.is_expired():
+                    return Response({'error': 'OTP expired'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if not otp_record.registration_data:
+                    return Response({'error': 'Registration data corrupted'}, status=400)
+                
+                # Mark OTP as verified
+                otp_record.is_verified = True
+                otp_record.save()
+                
+                # Create user with stored data
+                user_data = otp_record.registration_data['user_data']
+                password = otp_record.registration_data['password']
+                
+                user = CustomUser.objects.create_user(
+                    password=password,
+                    **user_data
+                )
+                user.is_verified = True
+                user.save()
+                
+                return Response({
+                    'status': 'Account verified and created',
+                    'email': user.email
+                }, status=status.HTTP_201_CREATED)
+                
+            except OTPVerification.DoesNotExist:
+                return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ForgotPasswordAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            try:
+                user = CustomUser.objects.get(email=email)
+                otp = str(random.randint(100000, 999999))
+                
+                # Create or update OTP record
+                OTPVerification.objects.filter(email=email, purpose='password_reset').delete()
+                OTPVerification.objects.create(
+                    email=email,
+                    otp=otp,
+                    purpose='password_reset'
+                )
+                
+                if send_otp_email(email, otp, 'password reset'):
+                    return Response({'status': 'OTP sent', 'email': email})
+                return Response({'error': 'Failed to send OTP'}, status=500)
+                
+            except CustomUser.DoesNotExist:
+                return Response({'error': 'User not found'}, status=404)
+        return Response(serializer.errors, status=400)
+
+class ResetPasswordAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            otp = serializer.validated_data['otp']
+            new_password = serializer.validated_data['new_password']
+            
+            try:
+                otp_record = OTPVerification.objects.get(
+                    email=email, 
+                    otp=otp,
+                    purpose='password_reset',
+                    is_verified=False
+                )
+                
+                if otp_record.is_expired():
+                    return Response({'error': 'OTP expired'}, status=400)
+                
+                user = CustomUser.objects.get(email=email)
+                user.set_password(new_password)
+                user.save()
+                
+                otp_record.is_verified = True
+                otp_record.save()
+                
+                return Response({'status': 'Password reset successful'})
+                
+            except OTPVerification.DoesNotExist:
+                return Response({'error': 'Invalid OTP'}, status=400)
+            except CustomUser.DoesNotExist:
+                return Response({'error': 'User not found'}, status=404)
+        return Response(serializer.errors, status=400)
 class LoginAPI(APIView):
     permission_classes = [AllowAny]
 
@@ -70,6 +207,9 @@ class LoginAPI(APIView):
         user = authenticate(email=email, password=password)
 
         if user:
+            if not user.is_verified:
+                return Response({'error': 'Account not verified. Check your email for verification OTP'},
+                              status=status.HTTP_401_UNAUTHORIZED)
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
