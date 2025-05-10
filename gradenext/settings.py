@@ -179,12 +179,16 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-if not DEBUG:
-    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
+# if not DEBUG:
+#     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
     
-if 'RENDER' in os.environ:
-    ALLOWED_HOSTS.append(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
-    DEBUG = False
+# if 'RENDER' in os.environ:
+#     ALLOWED_HOSTS.append(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
+#     DEBUG = False
 
 # Add these settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
