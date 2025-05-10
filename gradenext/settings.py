@@ -127,8 +127,9 @@ import dj_database_url
 
 DATABASES = {
     'default': dj_database_url.config(
-        default= os.getenv('DATABASE_URL'),
-        conn_max_age=600
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True,
     )
 }
 
@@ -179,12 +180,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-
-# if not DEBUG:
-#     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+if not DEBUG:
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
     
 # if 'RENDER' in os.environ:
 #     ALLOWED_HOSTS.append(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
