@@ -36,20 +36,22 @@ class RegisterAPI(APIView):
             validated_data = serializer.validated_data.copy()
             password = validated_data.pop('password')
             validated_data.pop('confirm_password', None)
+
+            # Handle coupon
             coupon = validate_coupon(validated_data.get('coupon_code'))
             if coupon:
                 validated_data['plan'] = coupon.plan_type
                 validated_data['applied_coupon'] = coupon
                 coupon.times_used += 1
                 coupon.save()
-                
+
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
-            
+
             # Generate OTP
             otp = str(random.randint(100000, 999999))
-            
-            # Create or update OTP record
+
+            # Delete existing OTP records and create new one
             OTPVerification.objects.filter(email=email, purpose='registration').delete()
             otp_record = OTPVerification.objects.create(
                 email=email,
@@ -60,16 +62,26 @@ class RegisterAPI(APIView):
                     'password': password
                 }
             )
-            
-            
-            # Send OTP email
-            if send_otp_email(email, otp_record.otp):
+
+            # 🔧 WRAP IN TRY-EXCEPT TO PREVENT SILENT FAILURES
+            try:
+                otp_sent = send_otp_email(email, otp_record.otp)
+            except Exception as e:
+                return Response({
+                    'error': 'Failed to send OTP',
+                    'details': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 🔧
+
+            if otp_sent:
                 return Response({
                     'status': 'OTP sent',
                     'email': email,
                     'message': 'Check your email for verification OTP'
-                }, status=status.HTTP_200_OK)
-        
+                }, status=status.HTTP_200_OK)  # 🔧
+            else:
+                return Response({
+                    'error': 'OTP sending failed due to mail server issue'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)  # 🔧
 
             try:
                 user = CustomUser.objects.create_user(
@@ -86,7 +98,9 @@ class RegisterAPI(APIView):
                 }, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyOTPAPI(APIView):
     permission_classes = [AllowAny]
