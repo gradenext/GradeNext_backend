@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +30,7 @@ SECRET_KEY = "django-insecure-aqs##s7+t=!nzxo31gqa7_1w71_vepsc=eubvs85fcnwi7xh1w
 DEBUG = False
 
 # ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['gradenext.com', 'www.gradenext.com']
+ALLOWED_HOSTS = ['api.gradenext.com', '45.55.188.117']
 
 
 # Application definition
@@ -79,6 +83,7 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    
      
 ]
 
@@ -188,10 +193,8 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
