@@ -19,13 +19,15 @@ import re
 import logging
 from .utils.coupons import validate_coupon
 from .utils.email import send_otp_email
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterAPI(APIView):
     permission_classes = [AllowAny]
 
@@ -137,7 +139,7 @@ class VerifyOTPAPI(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class ForgotPasswordAPI(APIView):
     permission_classes = [AllowAny]
 
@@ -165,7 +167,7 @@ class ForgotPasswordAPI(APIView):
             except CustomUser.DoesNotExist:
                 return Response({'error': 'User not found'}, status=404)
         return Response(serializer.errors, status=400)
-
+@method_decorator(csrf_exempt, name='dispatch')
 class ResetPasswordAPI(APIView):
     permission_classes = [AllowAny]
 
@@ -201,6 +203,7 @@ class ResetPasswordAPI(APIView):
             except CustomUser.DoesNotExist:
                 return Response({'error': 'User not found'}, status=404)
         return Response(serializer.errors, status=400)
+@method_decorator(csrf_exempt, name='dispatch')
 class LoginAPI(APIView):
     permission_classes = [AllowAny]
 
