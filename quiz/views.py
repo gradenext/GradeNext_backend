@@ -66,13 +66,16 @@ class RegisterAPI(APIView):
             )
 
             # Send OTP via email
-            if send_otp_email(email, otp):
+            try:
+                
+                send_otp_email(email, otp)
                 return Response({
                     'status': 'OTP sent',
                     'email': email,
                     'message': 'Check your email for verification OTP'
                 }, status=status.HTTP_200_OK)
-            else:
+            except Exception as e:
+                logger.error(f"Failed to send OTP to {email}: {str(e)}")
                 return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -160,9 +163,14 @@ class ForgotPasswordAPI(APIView):
                     purpose='password_reset'
                 )
                 
-                if send_otp_email(email, otp, 'password reset'):
+                try:
+                    send_otp_email(email, otp, 'password reset')
                     return Response({'status': 'OTP sent', 'email': email})
-                return Response({'error': 'Failed to send OTP'}, status=500)
+                except Exception as e:
+                    logger.error(f"Failed to send OTP to {email}: {str(e)}")
+                    # Clean up OTP record if sending fails
+                    # OTPVerification.objects.filter(email=email, purpose='password_reset').delete()
+                    return Response({'error': 'Failed to send OTP'}, status=500)
                 
             except CustomUser.DoesNotExist:
                 return Response({'error': 'User not found'}, status=404)

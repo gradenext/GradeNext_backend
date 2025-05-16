@@ -79,7 +79,39 @@ MIDDLEWARE = [
     "quiz.middleware.PlanVerificationMiddleware",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-otp",
+    "x-username",
+    "x-password",
+    "x-email",
+    "x-otp-purpose",
+    "x-otp-verification",
+    "x-coupon-code",
+    "x-coupon-plan-type",
+    "x-coupon-valid-from",
+    "x-coupon-valid-to",
+    "x-coupon-max-uses",
+    "x-coupon-times-used",
+    "x-coupon-is-active",
+    "x-coupon-is-valid",
+    "x-coupon-is-expired",
+    "x-coupon-remaining-uses",
+    "x-coupon-remaining-time",
+    "x-coupon-remaining-time-in-minutes",
+    "x-coupon-remaining-time-in-seconds",
+    "x-coupon-remaining-time-in-hours",
+    "x-coupon-remaining-time-in-days",
+    "x-coupon-remaining-time-in-weeks",
+    "x-coupon-remaining-time-in-months",
+    "x-coupon-remaining-time-in-years",
+]
+    
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     
