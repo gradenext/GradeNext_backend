@@ -27,10 +27,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-aqs##s7+t=!nzxo31gqa7_1w71_vepsc=eubvs85fcnwi7xh1w"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['api.gradenext.com', '45.55.188.117']
+ALLOWED_HOSTS = ['api.gradenext.com', '45.55.188.117','127.0.0.1' ]
 
 
 # Application definition

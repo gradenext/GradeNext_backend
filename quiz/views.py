@@ -205,6 +205,7 @@ class LoginAPI(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        print("incomming login data:", request.data)
         email = request.data.get('email')
         password = request.data.get('password')
         user = authenticate(email=email, password=password)
