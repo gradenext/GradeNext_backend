@@ -32,6 +32,7 @@ class RegisterAPI(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        logger.info(f"RegisterAPI called with data: {request.data}")
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             validated_data = serializer.validated_data.copy()
@@ -50,6 +51,7 @@ class RegisterAPI(APIView):
 
             # Generate OTP
             otp = str(random.randint(100000, 999999))
+            logger.info(f"Generated OTP {otp} for {email}")
 
             # Clear any previous OTP attempts for registration
             OTPVerification.objects.filter(email=email, purpose='registration').delete()
@@ -69,6 +71,7 @@ class RegisterAPI(APIView):
             try:
                 
                 send_otp_email(email, otp)
+                logger.info("OTP email sent successfully")
                 return Response({
                     'status': 'OTP sent',
                     'email': email,
@@ -77,7 +80,8 @@ class RegisterAPI(APIView):
             except Exception as e:
                 logger.error(f"Failed to send OTP to {email}: {str(e)}")
                 return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+        else:
+            logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
