@@ -48,40 +48,66 @@ class RegisterAPI(APIView):
                 coupon.save()
 
             email = serializer.validated_data['email']
+            
+        # Create the user
+            try:
+                user = CustomUser.objects.create_user(
+                        password=password,
+
+                        **validated_data
+                    )
+                user.is_verified = True
+                user.save()
+
+                    # Create token for the user
+                token, _ = Token.objects.get_or_create(user=user)
+
+                return Response({
+                        'status': 'Account verified and created',
+                        'email': user.email,
+                        'token': token.key,
+                        'account_id': user.account_id,
+                        'user': UserProfileSerializer(user).data
+                    }, status=status.HTTP_201_CREATED)
+
+            except Exception as e:
+                    return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+            
 
             # Generate OTP
-            otp = str(random.randint(100000, 999999))
-            logger.info(f"Generated OTP {otp} for {email}")
+        #     otp = str(random.randint(100000, 999999))
+        #     logger.info(f"Generated OTP {otp} for {email}")
 
-            # Clear any previous OTP attempts for registration
-            OTPVerification.objects.filter(email=email, purpose='registration').delete()
+        #     # Clear any previous OTP attempts for registration
+        #     OTPVerification.objects.filter(email=email, purpose='registration').delete()
 
-            # Store registration data and OTP
-            OTPVerification.objects.create(
-                email=email,
-                otp=otp,
-                purpose='registration',
-                registration_data={
-                    'user_data': validated_data,
-                    'password': password
-                }
-            )
+        #     # Store registration data and OTP
+        #     OTPVerification.objects.create(
+        #         email=email,
+        #         otp=otp,
+        #         purpose='registration',
+        #         registration_data={
+        #             'user_data': validated_data,
+        #             'password': password
+        #         }
+        #     )
 
-            # Send OTP via email
-            try:
+        #     # Send OTP via email
+        #     try:
                 
-                send_otp_email(email, otp)
-                logger.info("OTP email sent successfully")
-                return Response({
-                    'status': 'OTP sent',
-                    'email': email,
-                    'message': 'Check your email for verification OTP'
-                }, status=status.HTTP_200_OK)
-            except Exception as e:
-                logger.error(f"Failed to send OTP to {email}: {str(e)}")
-                return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            logger.error(f"Serializer errors: {serializer.errors}")
+        #         send_otp_email(email, otp)
+        #         logger.info("OTP email sent successfully")
+        #         return Response({
+        #             'status': 'OTP sent',
+        #             'email': email,
+        #             'message': 'Check your email for verification OTP'
+        #         }, status=status.HTTP_200_OK)
+        #     except Exception as e:
+        #         logger.error(f"Failed to send OTP to {email}: {str(e)}")
+        #         return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # else:
+        #     logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
