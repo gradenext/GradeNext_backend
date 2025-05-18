@@ -252,7 +252,7 @@ EMAIL_PORT       = 2525
 EMAIL_USE_TLS    = True
 EMAIL_HOST_USER     = "apikey"
 EMAIL_HOST_PASSWORD = os.getenv("SENDGRID_API_KEY")
-DEFAULT_FROM_EMAIL  = "kuldeepkushwah303@gmail.com"
+DEFAULT_FROM_EMAIL  = "nextgradeinfo@gmail.com"
 
 LOGGING = {
     'version': 1,
