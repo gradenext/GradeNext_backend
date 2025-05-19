@@ -114,8 +114,8 @@ CORS_ALLOW_HEADERS = [
     
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    
-     
+    "http://app.gradenext.com",
+    "https://app.gradenext.com",
 ]
 
 CORS_EXPOSE_HEADERS = ['Content-Type', 'Authorization']
