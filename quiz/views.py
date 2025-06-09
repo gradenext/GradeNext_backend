@@ -539,62 +539,60 @@ class QuestionAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = QuestionRequestSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        
-        
+        serializer = QuestionRequestSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if request.user.plan not in ['basic', 'pro', 'enterprise']:
             return Response({'error': 'No active plan'}, status=403)
 
         data = serializer.validated_data
         session_id = request.data.get('session_id')
-        
+
         try:
             session = UserSession.objects.get(
                 session_id=session_id,
                 user=request.user,
                 is_active=True
             )
-            
             session_progress = SessionProgress.objects.get(
                 session=session,
                 subject=data['subject']
             )
-            
-            question_data = self._generate_question(request.user,data, session_progress)
+
+            question_data = self._generate_question(request.user, data, session_progress)
             new_question_id = uuid.uuid4()
-            
+
+            # Save question record
             QuestionRecord.objects.create(
-            user=request.user,
-            session=session,
-            question_id=new_question_id,
-            question_text=question_data['question_text'],
-            options=question_data['options'],
-            correct_answer=question_data['correct_answer'],
-            subject=data['subject'],
-            topic=session_progress.current_topic,
-            level=session_progress.current_level,
-            question_type='regular'  # Add this line
-        )
-            
-        
-            
+                user=request.user,
+                session=session,
+                question_id=new_question_id,
+                question_text=question_data['question_text'],
+                options=question_data['options'],
+                correct_answer=question_data['correct_answer'],
+                subject=data['subject'],
+                topic=session_progress.current_topic,
+                level=session_progress.current_level,
+                question_type='regular',
+                # image_url=question_data.get('image_url')  
+            )
+
             self._update_progress(session_progress)
             
+
             return Response({
                 'question': question_data['question_text'],
                 'options': question_data['options'],
                 'hint': question_data['hint'],
                 'explanation': question_data['explanation'],
+                'image_generated': question_data.get('image_generated', False),
+                'image_url': question_data.get('image_url'),
                 'question_id': str(new_question_id),
+                'question_type': question_data['question_type'],
                 'progress': self._progress_status(session_progress)
             })
-            
+
         except UserSession.DoesNotExist:
             return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
         except SessionProgress.DoesNotExist:
@@ -615,25 +613,23 @@ class QuestionAPI(APIView):
     def _update_progress(self, progress):
         if progress.current_streak >= 5:
             current_level_index = DIFFICULTY_LEVELS.index(progress.current_level)
-            
             if current_level_index < len(DIFFICULTY_LEVELS) - 1:
                 progress.current_level = DIFFICULTY_LEVELS[current_level_index + 1]
                 progress.current_streak = 0
             else:
-                # Original topic progression logic
                 if progress.current_topic not in progress.completed_topics:
                     progress.completed_topics.append(progress.current_topic)
-                
+
                 grade_config = GRADE_SUBJECT_CONFIG[progress.session.user.grade]
                 subject_config = grade_config[progress.subject]
                 current_topics = subject_config["topics"]
-                
+
                 try:
                     current_index = current_topics.index(progress.current_topic)
                     next_topic = current_topics[current_index + 1] if current_index + 1 < len(current_topics) else None
                 except ValueError:
                     next_topic = current_topics[0] if current_topics else None
-                
+
                 if next_topic:
                     progress.current_topic = next_topic
                     progress.current_level = DIFFICULTY_LEVELS[0]
@@ -642,8 +638,7 @@ class QuestionAPI(APIView):
                     progress.current_topic = "All topics completed"
 
             progress.save()
-            
-            # Always update user progress for regular flow
+
             user_progress = UserProgress.objects.get(
                 user=progress.session.user,
                 grade=progress.session.user.grade,
@@ -653,6 +648,7 @@ class QuestionAPI(APIView):
             user_progress.current_level = progress.current_level
             user_progress.completed_topics = progress.completed_topics.copy()
             user_progress.save()
+
     def _progress_status(self, progress):
         return {
             'current_topic': progress.current_topic,
@@ -727,6 +723,9 @@ class RevisionQuestionAPI(APIView):
                 'hint': question['hint'],
                 'explanation': question['explanation'],
                 'question_id': str(new_question_id),
+                'image_generated': question.get('image_generated', False),
+                'image_url': question.get('image_url'),
+                'question_type': question['question_type'],
                 'metadata': {
                     'type': 'revision',
                     'topic': topic,
@@ -1113,6 +1112,9 @@ class TopicQuestionAPI(APIView):
                 'hint': question['hint'],
                 'explanation': question['explanation'],
                 'question_id': str(new_question_id),
+                'image_generated': question.get('image_generated', False),
+                'image_url': question.get('image_url'),
+                'question_type': question['question_type'],
                 'metadata': {
                     'type': 'topic_practice',
                     'topic': data['topic'],

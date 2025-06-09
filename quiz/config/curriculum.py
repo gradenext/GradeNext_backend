@@ -455,7 +455,11 @@ SUBJECT_TOPICS = {
 
         # Grade 5 Mathematics
         "finding_volume": [
-            "Unit Cubes and Volume",
+            "Unit Cubes",
+            "Volume of a Right Rectangular Prism",
+            "Volume of Composite Figures",
+            "Volume of Cylinders",
+            "Volume of Cones",
             "Expressions for Finding Volume",
             "Volumes of Solid Figures"
         ],
@@ -493,11 +497,11 @@ SUBJECT_TOPICS = {
             # Grade 6 Mathematics
     "reasoning_to_find_area": [
         "Reasoning to Find Area",
+        "rectangles ",
         "Parallelograms",
         "Triangles and Other Polygons",
         "Surface Area",
         "Squares and Cubes",
-        "Let’s Put It to Work"
     ],
     "introducing_ratios": [
         "What Are Ratios?",
@@ -564,12 +568,15 @@ SUBJECT_TOPICS = {
         "Representing Proportional Relationships with Equations",
         "Comparing Proportional and Nonproportional Relationships",
         "Representing Proportional Relationships with Graphs",
-        "Let’s Put It to Work"
+        
     ],
     "measuring_circles": [
-        "Circumference of a Circle",
-        "Area of a Circle",
-        "Let’s Put It to Work"
+        "Circumference of Circle",
+        "Area of Circle"
+        "finding the Radius and Diameter",
+        "tangents and Arcs",
+        
+        
     ],
     "proportional_relationships_and_percentages": [
         "Proportional Relationships with Fractions",
