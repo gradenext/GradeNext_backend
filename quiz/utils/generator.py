@@ -399,39 +399,55 @@ class QuestionGenerator:
 
     def _generate_explanation(self, question_text, correct_answer):
         prompt = f"""
-    Given the following 'correct answer: {correct_answer}' and 'question: {question_text}', generate a short, clear formatted explanation that only leads to the provided correct answer:{correct_answer}.
+        Given the following 'correct answer: {correct_answer}' and 'question: {question_text}', generate a short, clear formatted explanation that only leads to the provided correct answer:{correct_answer}.
 
-    Question: {question_text}
-    Correct Answer: {correct_answer}
+        Question: {question_text}
+        Correct Answer: {correct_answer}
 
-    Explanation Rules:
-    - The explanation must support ONLY the correct answer ({correct_answer}).
-    - Always strictly Use math formatting (×, =, √, etc.) where applicable to simplify understanding.
-    - The explanation must be logically consistent with the correct answer — do the math if needed.
-    - Never mention or calculate any other answer even if correct answer is wrong.
-    - Keep the explanation 3–5 lines max. Avoid over-explaining.
+        Explanation Rules:
+        - The explanation must support ONLY the correct answer ({correct_answer}).
+        - Always strictly Use math formatting (×, =, √, etc.) where applicable to simplify understanding.
+        - The explanation must be logically consistent with the correct answer — do the math if needed.
+        - Never mention or calculate any other answer even if correct answer is wrong.
+        - Keep the explanation 3–5 lines max. Avoid over-explaining.
 
-    IMPORTANT:
-    Double-check that the final calculation/result in the explanation equals the correct answer: {correct_answer}.
-    If it does not, revise the steps so it does.
-    
-    **Math Formatting Rules (Grades 4+):**
-    - Use proper mathematical notation and symbols.
-    - Do not include any formulas or equations in the question text that provide the solution method.
-    -Avoid using plain text for mathematical symbols.
-    - Use Unicode math symbols where possible:
+        IMPORTANT:
+        Double-check that the final calculation/result in the explanation equals the correct answer: {correct_answer}.
+        If it does not, revise the steps so it does.
+
+        **Math Formatting Rules (Grades 4+):**
+        - Use proper mathematical notation and symbols.
+        - Do not include any formulas or equations in the question text that provide the solution method.
+        - Avoid using plain text for mathematical symbols.
+        - Use Unicode math symbols where possible:
         - π → `π` (U+03C0)
         - θ → `θ` (U+03B8)
         - γ → `γ` (U+03B3)
         - λ → `λ` (U+03BB)
         
-    - Avoid using `pi`, `theta`, `lambda` in plain text. Always replace with `π`, `θ`, `λ`.
-    - Do NOT use LaTeX or escape characters like \\( or \\), $...$, etc.
-    - Format units cleanly: e.g., 4 cm × 5 cm = 20 cm².
-    - Ensure all mathematical expressions are correctly formatted with symbols, not plain text (e.g., use '+' for addition, '×' for multiplication, '÷' for division, etc.).
+        - Avoid using `pi`, `theta`, `lambda` in plain text. Always replace with `π`, `θ`, `λ`.
+        - Do NOT use LaTeX or escape characters like \\( or \\), $...$, etc.
+        - Format units cleanly: e.g., 4 cm × 5 cm = 20 cm².
+        - Ensure all mathematical expressions are correctly formatted with symbols, not plain text (e.g., use '+' for addition, '×' for multiplication, '÷' for division, etc.).
 
-    Output only the explanation.
-    """
+        To help you understand the required format, here are some examples of correctly formatted explanations:
+
+        1. For a question: 'What is the area of a rectangle with length 15 m and width 10 m?'
+
+        Explanation: The area of a rectangle is calculated by multiplying its length by its width. So, area = 15 m × 10 m = 150 m².
+
+        2. For a question: 'What is the area of a triangle with base 5 m and height 4 m?'
+
+        Explanation: The area of a triangle is given by (1/2) × base × height. So, area = (1/2) × 5 m × 4 m = (1/2) × 20 m² = 10 m².
+
+        3. For a question: 'Simplify 3 + 4 × 2'
+
+        Explanation: First, perform the multiplication: 4 × 2 = 8. Then add 3: 3 + 8 = 11. So, 3 + 4 × 2 = 11.
+
+        Make sure to use symbols like × for multiplication, + for addition, - for subtraction, ÷ for division, and ( ) for grouping. For fractions, use (numerator/denominator), like (1/2). For units, use m² for square meters, cm for centimeters, etc.
+
+        Output only the explanation.
+        """
         response = self.client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[{"role": "user", "content": prompt}],
@@ -442,7 +458,7 @@ class QuestionGenerator:
 
         # Optional: Validate correctness in Python (last-resort fallback)
         if str(correct_answer) not in explanation:
-            explanation += f"\n(Note: Ensure explanation result matches {correct_answer} exactly.)"
+            explanation += f"\n <b>The Correct answer is : {correct_answer}</b>."
 
         return explanation
 
