@@ -27,7 +27,14 @@ from emoji import emojize
 logger = logging.getLogger(__name__)
 
 DRAW_FUNCTIONS = {
+    # 'ruler': draw_ruler,
+    # 'number_line': draw_number_line,
+    # 'fraction': draw_fraction_bar,
+    # 'angle': draw_angle,
     'cube': draw_cube,
+    # 'translation': draw_translation,
+    # 'scale_drawing': draw_scale_drawing,
+    # 'graph': draw_graph,
     'circle': draw_circle,
     'right_triangle': draw_right_triangle,
     'rectangle': lambda **kwargs: QuestionGenerator()._draw_rectangle(kwargs),
@@ -35,51 +42,65 @@ DRAW_FUNCTIONS = {
     'geometric_shape': lambda **kwargs: QuestionGenerator()._draw_geometric_shape(kwargs),
 }
 
+
 class QuestionGenerator:
     def __init__(self):
         self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         self.max_retries = 5
         self.required_fields = [
-            'questionText', 'correctAnswer', 'hint', 'questionType']
+            'questionText', 'correctAnswer', 'hint', 'explanation', 'questionType']
         self.valid_image_types = [
             'rectangle', 'number_line', 'fraction', 'clock', 'graph', 'geometric_shape',
             'ruler', 'angle', 'cube', 'translation', 'scale_drawing', 'circle', 'right_triangle'
         ]
 
     def _draw_rectangle(self, params: dict) -> str:
+        """Generate rectangle diagram with given dimensions"""
         length = params.get('length', 5)
         width = params.get('width', 3)
         img = Image.new("RGB", (400, 250), "white")
         draw = ImageDraw.Draw(img)
-        fill_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+        fill_color = (random.randint(0, 255), random.randint(
+            0, 255), random.randint(0, 255))
         draw.rectangle([(50, 50), (50+length*20, 50+width*20)],
                        fill=fill_color, outline="black", width=2)
-        font = ImageFont.truetype("arial.ttf", 18) if settings.DEBUG else ImageFont.load_default()
+
+        font = ImageFont.truetype(
+            "arial.ttf", 18) if settings.DEBUG else ImageFont.load_default()
         draw.text((60, 30), f"Length: {length}cm", fill="black", font=font)
         draw.text((200, 130), f"Width: {width}cm", fill="black", font=font)
+
         return upload_pillow_image_to_cloudinary(img)
 
     def _draw_clock(self, params: dict) -> str:
+        """Generate clock face with specified time"""
         hours = params.get('hours', 12)
         minutes = params.get('minutes', 0)
+
         img = Image.new("RGB", (400, 400), "white")
         draw = ImageDraw.Draw(img)
+
         draw.ellipse((50, 50, 350, 350), outline="black", width=3)
+
         hour_angle = math.radians((hours % 12) * 30 - 90)
         hour_length = 80
         draw.line([(200, 200),
                    (200 + hour_length * math.cos(hour_angle),
                     200 + hour_length * math.sin(hour_angle))],
                   fill="blue", width=4)
+
         minute_angle = math.radians(minutes * 6 - 90)
         minute_length = 120
         draw.line([(200, 200),
                    (200 + minute_length * math.cos(minute_angle),
                     200 + minute_length * math.sin(minute_angle))],
                   fill="red", width=3)
+
         return upload_pillow_image_to_cloudinary(img)
 
     def _draw_geometric_shape(self, params: dict) -> str:
+        """Generate fixed-size geometric shapes centered in image"""
         shape = params.get('shape', 'square').lower()
         img_width, img_height = 400, 300
         img = Image.new("RGB", (img_width, img_height), "white")
@@ -89,40 +110,57 @@ class QuestionGenerator:
             random.randint(0, 255),
             random.randint(0, 255)
         )
+
         center_x, center_y = img_width // 2, img_height // 2
-        shape_size = 200
+        shape_size = 200  # fixed size for all shapes
         half_size = shape_size // 2
+
         if shape == 'square':
             draw.rectangle(
                 [(center_x - half_size, center_y - half_size),
                  (center_x + half_size, center_y + half_size)],
                 fill=fill_color, outline="black", width=2
             )
+
+        # elif shape == 'rectangle':
+        #     rect_width = 200
+        #     rect_height = 120
+        #     draw.rectangle(
+        #         [(center_x - rect_width // 2, center_y - rect_height // 2),
+        #         (center_x + rect_width // 2, center_y + rect_height // 2)],
+        #         fill=fill_color, outline="black", width=2
+        #     )
+
         elif shape == 'circle':
             draw.ellipse(
                 [(center_x - half_size, center_y - half_size),
                  (center_x + half_size, center_y + half_size)],
                 fill=fill_color, outline="black", width=2
             )
+
         elif shape == 'triangle':
             base = shape_size
-            height = int(shape_size * 0.866)
+            height = int(shape_size * 0.866)  # height for equilateral triangle
             points = [
                 (center_x, center_y - height // 2),
                 (center_x - base // 2, center_y + height // 2),
                 (center_x + base // 2, center_y + height // 2)
             ]
             draw.polygon(points, fill=fill_color, outline="black", width=2)
+
         elif shape == 'pentagon':
             radius = shape_size // 2
             points = [
                 (
-                    center_x + radius * math.cos(2 * math.pi * i / 5 - math.pi / 2),
-                    center_y + radius * math.sin(2 * math.pi * i / 5 - math.pi / 2)
+                    center_x + radius *
+                    math.cos(2 * math.pi * i / 5 - math.pi / 2),
+                    center_y + radius *
+                    math.sin(2 * math.pi * i / 5 - math.pi / 2)
                 )
                 for i in range(5)
             ]
             draw.polygon(points, fill=fill_color, outline="black", width=2)
+
         elif shape == 'hexagon':
             radius = shape_size // 2
             points = [
@@ -133,6 +171,7 @@ class QuestionGenerator:
                 for i in range(6)
             ]
             draw.polygon(points, fill=fill_color, outline="black", width=2)
+
         elif shape == 'oval':
             oval_width = 200
             oval_height = 120
@@ -141,6 +180,7 @@ class QuestionGenerator:
                  (center_x + oval_width // 2, center_y + oval_height // 2)],
                 fill=fill_color, outline="black", width=2
             )
+
         elif shape == 'parallelogram':
             base = 200
             height = 120
@@ -152,11 +192,42 @@ class QuestionGenerator:
                 (center_x - base // 2 - slant, center_y + height // 2)
             ]
             draw.polygon(points, fill=fill_color, outline="black", width=2)
+
         else:
             raise ValueError(f"Unsupported shape: {shape}")
+
         return upload_pillow_image_to_cloudinary(img)
 
+    def _draw_graph(self, params: dict) -> str:
+        """Generate a simple graph using QuickChart"""
+        chart_config = {
+            "type": params.get('type', 'bar'),
+            "data": {
+                "labels": params.get("labels", ["A", "B", "C", "D"]),
+                "datasets": [{
+                    "label": params.get("label", "Data Series"),
+                    "data": params.get("data", [12, 19, 3, 5]),
+                    "backgroundColor": [
+                        f"rgb({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)})"
+                        for _ in range(4)
+                    ]
+                }]
+            },
+            "options": {
+                "plugins": {
+                    "datalabels": {"display": True},
+                    "legend": {"display": False}
+                }
+            }
+        }
+        qc = QuickChart()
+        qc.width = 600
+        qc.height = 400
+        qc.config = chart_config
+        return qc.get_short_url()
+    
     def _process_question_text(self, text, grade):
+        """Process question text with emojis for grades 1-3"""
         if grade <= 3:
             try:
                 return emojize(text, language='alias')
@@ -164,6 +235,126 @@ class QuestionGenerator:
                 logger.warning(f"Emoji processing failed: {str(e)}")
                 return text
         return text
+
+    def generate_question(self, user, grade, subject, topic, level, revision=False):
+        cache_key = QuestionCache.generate_key(
+            grade, subject, topic, level, revision)
+        seen_questions = set(UserQuestionHistory.objects.filter(user=user)
+                             .values_list('question_signature', flat=True))
+
+        all_subtopics = SUBJECT_TOPICS[subject][topic]
+        subtopics = random.sample(all_subtopics, min(
+            3, len(all_subtopics))) if all_subtopics else []
+
+        for attempt in range(self.max_retries):
+            try:
+                cached = [q for q in QuestionCache.get(cache_key)
+                          if QuestionCache.generate_signature(q) not in seen_questions]
+
+                if cached and random.random() < 0.3:  # 30% chance to use cached question
+                    logger.info(f"Using cached question for {cache_key}")
+                    question = random.choice(cached)
+                    QuestionCache.add(cache_key, question)
+                    self._record_question(user, question)
+                    return question
+
+                prompt = self._build_prompt(
+                    grade, subject, topic, subtopics, level, revision, seen_questions)
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=1000,
+                    response_format={"type": "json_object"}
+                )
+
+                question_data = json.loads(response.choices[0].message.content)
+
+                question_type = question_data.get('questionType')
+                if question_type not in ['multiple', 'input']:
+                    raise ValueError("Invalid questionType")
+
+                if question_type == 'multiple':
+                    if 'options' not in question_data or len(question_data['options']) != 4:
+                        raise ValueError("Multiple-choice question must have exactly 4 options")
+                    if 'correctAnswer' not in question_data or question_data['correctAnswer'] not in question_data['options']:
+                        raise ValueError("Correct answer must be one of the options")
+                elif question_type == 'input':
+                    if 'options' not in question_data or len(question_data['options']) != 4:
+                        raise ValueError("Input question must have exactly 4 integer options")
+                    for opt in question_data['options']:
+                        try:
+                            int(opt)
+                        except ValueError:
+                            raise ValueError("All options for input type must be integers")
+                    try:
+                        int(question_data['correctAnswer'])
+                    except ValueError:
+                        raise ValueError("Correct answer for input type must be an integer")
+
+                # ✅ NEW LOGIC: Ensure explanation supports correct answer
+                if not self._validate_explanation_supports_answer(question_data['explanation'], question_data['correctAnswer']):
+                    raise ValueError("Explanation does not logically support the correct answer")
+
+
+                required_common_fields = [
+                    'questionText', 'hint', 'explanation']
+                for field in required_common_fields:
+                    if field not in question_data:
+                        raise ValueError(f"Missing required field: {field}")
+
+                image_url = None
+                image_generated = False
+                try:
+                    if grade >= 4 and 'imageType' in question_data and question_data['imageType']:
+                        image_url, image_generated = self._generate_visual(
+                            question_text=question_data.get(
+                                "questionText", ""),
+                            image_type=question_data['imageType'],
+                            image_params=question_data.get("imageParams", {})
+                        )
+                    else:
+                        image_url = None
+                        image_generated = False
+                except Exception as e:
+                    logger.warning(
+                        f"Image generation failed but continuing: {str(e)}")
+                    image_url = None
+                    image_generated = False
+
+                question = {
+                    "question_text": self._process_question_text(question_data['questionText'], grade),
+                    "options": question_data.get('options', []),
+                    "correct_answer": question_data['correctAnswer'],
+                    "hint": question_data['hint'],
+                    "explanation": question_data['explanation'],
+                    "image_url": image_url,
+                    "image_generated": image_generated,
+                    "question_type": question_type
+                }
+
+                if QuestionCache.generate_signature(question) in seen_questions:
+                    raise ValueError("Duplicate question generated")
+
+                QuestionCache.add(cache_key, question)
+                self._record_question(user, question)
+                return question
+
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"JSON decode error on attempt {attempt+1}: {str(e)}")
+                continue
+            except KeyError as e:
+                logger.warning(f"Missing key in response: {str(e)}")
+                continue
+            except Exception as e:
+                logger.error(f"Question generation error: {str(e)}")
+                if attempt == self.max_retries - 1:
+                    raise RuntimeError(
+                        "Failed to generate valid question after multiple attempts")
+                continue
+
+        raise RuntimeError("Exhausted all generation attempts")
 
     def _build_prompt(self, grade, subject, topic, subtopics, level, revision, seen_questions):
         text_visual_instruction = ""
@@ -243,6 +434,47 @@ class QuestionGenerator:
         - For "multiple" type questions, provide 4 descriptive options (e.g., "80 degrees", "75 degrees" for math, or descriptive text for English).
         - For "input" type questions, provide 4 integer options (e.g., "80", "75", "90", "85") and ensure the correct answer is an integer.
         
+
+        **Hint and Explanation Strict Rules:**
+        - The "hint" must be directly relevant to the question asked. It should guide the student without giving away the full answer but must not be generic or unrelated.
+        - Keep the explanation 3–5 lines max. Avoid over-explaining.
+        - Under **no circumstance** should the explanation justify, validate, or mention incorrect options as being valid in any way.
+        - The explanation must **only support the correctAnswer that is generated along with the question** and must not be vague, misleading, or conflict with the provided correct answer.
+        - Any inconsistency between the correctAnswer and the explanation is considered invalid.
+        - Ensure the explanation is clear, concise, and directly addresses the question asked.
+        - Avoid using `pi`, `theta`, `lambda` in plain text. Always replace with `π`, `θ`, `λ`.
+        - Do NOT use LaTeX or escape characters like \\( or \\), $...$, etc.
+        - Format units cleanly: e.g., 4 cm × 5 cm = 20 cm².
+        - Ensure all mathematical expressions are correctly formatted with symbols, not plain text (e.g., use '+' for addition, '×' for multiplication, '÷' for division, etc.).
+
+        To help you understand the required format, here are some examples of correctly formatted explanations:
+
+        1. For a question: 'What is the area of a rectangle with length 15 m and width 10 m?'
+
+        Explanation: The area of a rectangle is calculated by multiplying its length by its width. So, area = 15 m × 10 m = 150 m².
+
+        2. For a question: 'What is the area of a triangle with base 5 m and height 4 m?'
+
+        Explanation: The area of a triangle is given by (1/2) × base × height. So, area = (1/2) × 5 m × 4 m = (1/2) × 20 m² = 10 m².
+
+        3. For a question: 'Simplify 3 + 4 × 2'
+
+        Explanation: First, perform the multiplication: 4 × 2 = 8. Then add 3: 3 + 8 = 11. So, 3 + 4 × 2 = 11.
+
+        Make sure to use symbols like × for multiplication, + for addition, - for subtraction, ÷ for division, and ( ) for grouping. For fractions, use (numerator/denominator), like (1/2). For units, use m² for square meters, cm for centimeters, etc.
+        
+
+        **Correct Answer Calculation Rule:**
+        - The correct answer must be **derived by performing logical or numerical calculations** based on the data or scenario provided in the question.
+        - Do **not** choose the correct answer arbitrarily.
+        - Ensure the explanation **clearly shows the steps or logic** used to arrive at the correct answer.
+        - There must be **a direct connection** between:
+        1. The values or context in the question,
+        2. The steps described in the explanation,
+        3. The final correct answer.
+        - If a calculation or logical deduction cannot be shown clearly, **do not use such a question**.
+        - You MUST verify that the correctAnswer matches the solution derived in the explanation. If it does not match, REJECT the question.
+
         
         **Table Inclusion:**
         -If the question includes structured information like comparisons, schedules, data analysis, classifications, frequency, etc.,   embed the information directly as a **visually formatted table** inside the `questionText` using **Markdown or clear ASCII formatting**.
@@ -303,173 +535,27 @@ class QuestionGenerator:
 
         """
         return prompt
+    
 
-    def generate_question(self, user, grade, subject, topic, level, revision=False):
-        cache_key = QuestionCache.generate_key(grade, subject, topic, level, revision)
-        seen_questions = set(UserQuestionHistory.objects.filter(user=user).values_list('question_signature', flat=True))
-        all_subtopics = SUBJECT_TOPICS[subject][topic]
-        subtopics = random.sample(all_subtopics, min(3, len(all_subtopics))) if all_subtopics else []
-        for attempt in range(self.max_retries):
-            try:
-                cached = [q for q in QuestionCache.get(cache_key) if QuestionCache.generate_signature(q) not in seen_questions]
-                if cached and random.random() < 0.3:
-                    logger.info(f"Using cached question for {cache_key}")
-                    question = random.choice(cached)
-                    QuestionCache.add(cache_key, question)
-                    self._record_question(user, question)
-                    return question
-                prompt = self._build_prompt(grade, subject, topic, subtopics, level, revision, seen_questions)
-                response = self.client.chat.completions.create(
-                    model="gpt-4-turbo-preview",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=1000,
-                    response_format={"type": "json_object"}
-                )
-                question_data = json.loads(response.choices[0].message.content)
-                question_type = question_data.get('questionType')
-                if question_type not in ['multiple', 'input']:
-                    raise ValueError("Invalid questionType")
-                if question_type == 'multiple':
-                    if 'options' not in question_data or len(question_data['options']) != 4:
-                        raise ValueError("Multiple-choice question must have exactly 4 options")
-                    if 'correctAnswer' not in question_data or question_data['correctAnswer'] not in question_data['options']:
-                        raise ValueError("Correct answer must be one of the options")
-                elif question_type == 'input':
-                    if 'options' not in question_data or len(question_data['options']) != 4:
-                        raise ValueError("Input question must have exactly 4 integer options")
-                    for opt in question_data['options']:
-                        try:
-                            int(opt)
-                        except ValueError:
-                            raise ValueError("All options for input type must be integers")
-                    try:
-                        int(question_data['correctAnswer'])
-                    except ValueError:
-                        raise ValueError("Correct answer for input type must be an integer")
-                required_common_fields = ['questionText', 'hint']
-                for field in required_common_fields:
-                    if field not in question_data:
-                        raise ValueError(f"Missing required field: {field}")
-                image_url = None
-                image_generated = False
-                try:
-                    if grade >= 4 and 'imageType' in question_data and question_data['imageType']:
-                        image_url, image_generated = self._generate_visual(
-                            question_text=question_data.get("questionText", ""),
-                            image_type=question_data['imageType'],
-                            image_params=question_data.get("imageParams", {})
-                        )
-                except Exception as e:
-                    logger.warning(f"Image generation failed but continuing: {str(e)}")
-                    image_url = None
-                    image_generated = False
-                # Moved explanation generation outside the nested try-except
-                explanation = self._generate_explanation(
-                    question_data['questionText'],
-                    question_data['correctAnswer']
-                )
-                question = {
-                    "question_text": self._process_question_text(question_data['questionText'], grade),
-                    "options": question_data.get('options', []),
-                    "correct_answer": question_data['correctAnswer'],
-                    "hint": question_data['hint'],
-                    "explanation": explanation,
-                    "image_url": image_url,
-                    "image_generated": image_generated,
-                    "question_type": question_type
-                }
-                if QuestionCache.generate_signature(question) in seen_questions:
-                    raise ValueError("Duplicate question generated")
-                QuestionCache.add(cache_key, question)
-                self._record_question(user, question)
-                return question
-            except json.JSONDecodeError as e:
-                logger.warning(f"JSON decode error on attempt {attempt+1}: {str(e)}")
-                continue
-            except KeyError as e:
-                logger.warning(f"Missing key in response: {str(e)}")
-                continue
-            except Exception as e:
-                logger.error(f"Question generation error: {str(e)}")
-                if attempt == self.max_retries - 1:
-                    raise RuntimeError("Failed to generate valid question after multiple attempts")
-                continue
-        raise RuntimeError("Exhausted all generation attempts")
-
-    def _generate_explanation(self, question_text, correct_answer):
-        prompt = f"""
-        Given the following 'correct answer: {correct_answer}' and 'question: {question_text}', generate a short, clear formatted explanation that only leads to the provided correct answer:{correct_answer}.
-
-        Question: {question_text}
-        Correct Answer: {correct_answer}
-
-        Explanation Rules:
-        - The explanation must support ONLY the correct answer ({correct_answer}).
-        - Always strictly Use math formatting (×, =, √, etc.) where applicable to simplify understanding.
-        - The explanation must be logically consistent with the correct answer — do the math if needed.
-        - Never mention or calculate any other answer even if correct answer is wrong.
-        - Keep the explanation 3–5 lines max. Avoid over-explaining.
-
-        IMPORTANT:
-        Double-check that the final calculation/result in the explanation equals the correct answer: {correct_answer}.
-        If it does not, revise the steps so it does.
-
-        **Math Formatting Rules (Grades 4+):**
-        - Use proper mathematical notation and symbols.
-        - Do not include any formulas or equations in the question text that provide the solution method.
-        - Avoid using plain text for mathematical symbols.
-        - Use Unicode math symbols where possible:
-        - π → `π` (U+03C0)
-        - θ → `θ` (U+03B8)
-        - γ → `γ` (U+03B3)
-        - λ → `λ` (U+03BB)
-        
-        - Avoid using `pi`, `theta`, `lambda` in plain text. Always replace with `π`, `θ`, `λ`.
-        - Do NOT use LaTeX or escape characters like \\( or \\), $...$, etc.
-        - Format units cleanly: e.g., 4 cm × 5 cm = 20 cm².
-        - Ensure all mathematical expressions are correctly formatted with symbols, not plain text (e.g., use '+' for addition, '×' for multiplication, '÷' for division, etc.).
-
-        To help you understand the required format, here are some examples of correctly formatted explanations:
-
-        1. For a question: 'What is the area of a rectangle with length 15 m and width 10 m?'
-
-        Explanation: The area of a rectangle is calculated by multiplying its length by its width. So, area = 15 m × 10 m = 150 m².
-
-        2. For a question: 'What is the area of a triangle with base 5 m and height 4 m?'
-
-        Explanation: The area of a triangle is given by (1/2) × base × height. So, area = (1/2) × 5 m × 4 m = (1/2) × 20 m² = 10 m².
-
-        3. For a question: 'Simplify 3 + 4 × 2'
-
-        Explanation: First, perform the multiplication: 4 × 2 = 8. Then add 3: 3 + 8 = 11. So, 3 + 4 × 2 = 11.
-
-        Make sure to use symbols like × for multiplication, + for addition, - for subtraction, ÷ for division, and ( ) for grouping. For fractions, use (numerator/denominator), like (1/2). For units, use m² for square meters, cm for centimeters, etc.
-
-        Output only the explanation.
+    def _validate_explanation_supports_answer(self, explanation, correct_answer):
         """
-        response = self.client.chat.completions.create(
-            model="gpt-4-turbo-preview",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=250,
-        )
-        explanation = response.choices[0].message.content.strip()
+        Validates that the explanation supports the correct answer.
+        Currently, this does a basic check to see if the correct answer
+        is mentioned in the explanation.
+        """
+        normalized_explanation = explanation.lower().replace(',', '').strip()
+        normalized_answer = str(correct_answer).lower().replace(',', '').strip()
 
-        # Optional: Validate correctness in Python (last-resort fallback)
-        if str(correct_answer) not in explanation:
-            explanation += f"\n <b>The Correct answer is : {correct_answer}</b>."
-
-        return explanation
-
-
+        # Basic validation: answer must appear in explanation
+        return normalized_answer in normalized_explanation
 
     def _generate_visual(self, question_text: str, image_type: str = None, image_params: dict = None) -> tuple[str, bool]:
         try:
             if image_type and image_type in DRAW_FUNCTIONS:
                 draw_func = DRAW_FUNCTIONS[image_type]
                 specific_params = image_params.get(image_type, {})
-                validated_params = self._validate_image_params(image_type, specific_params)
+                validated_params = self._validate_image_params(
+                    image_type, specific_params)
                 image_url = draw_func(**validated_params)
                 return image_url, True
         except Exception as e:
@@ -503,6 +589,7 @@ class QuestionGenerator:
         for param in rule.get('required', []):
             if param not in validated:
                 raise ValueError(f"Missing required parameter: {param}")
+        print(f"Validated parameters for {image_type}: {validated}")
         return validated
 
     def _validate_and_format(self, question, grade, subject, topic, level):
@@ -515,16 +602,20 @@ class QuestionGenerator:
             raise ValueError("Missing required fields")
         if len(question['options']) != 4:
             raise ValueError("Exactly 4 options required")
+
         clean_options = []
         for opt in question['options']:
             clean_opt = re.sub(r'^[A-D][):.]?\s*', '', str(opt)).strip()
             if len(clean_opt) < 1:
                 raise ValueError("Invalid option")
             clean_options.append(clean_opt)
-        raw_correct = str(question['correct_answer']).strip()
+
+        raw_correct = str(question['correctAnswer']).strip()
         if raw_correct not in clean_options:
             raise ValueError("Correct answer not found in options")
+
         random.shuffle(clean_options)
+
         return {
             'question_text': question['questionText'],
             'options': clean_options,
@@ -546,11 +637,14 @@ class QuestionGenerator:
             font = ImageFont.truetype("arial.ttf", 24)
         except:
             font = ImageFont.load_default()
+
         d.text((10, 80), text, fill=(0, 0, 0), font=font)
         buffer = BytesIO()
         img.save(buffer, format='PNG')
         buffer.seek(0)
-        result = cloudinary.uploader.upload(buffer, folder='gradenext_questions')
+
+        result = cloudinary.uploader.upload(
+            buffer, folder='gradenext_questions')
         return result['secure_url']
 
     def _record_question(self, user, question):
@@ -560,6 +654,69 @@ class QuestionGenerator:
             question_signature=signature,
             defaults={'created_at': timezone.now()}
         )
+
+    def _fallback_visual_generation(self, question_text: str) -> str:
+        text = question_text.lower()
+
+        shape_patterns = {
+            'square': r'square|quadrilateral with equal sides',
+            'triangle': r'triangle|three.?side',
+            'circle': r'circle|radius|diameter'
+        }
+
+        for shape, pattern in shape_patterns.items():
+            if re.search(pattern, text):
+                return self._draw_geometric_shape({
+                    'shape': shape,
+                    'size': random.randint(3, 10)
+                })
+
+        measurement_patterns = [
+            (r'length of (\d+).*width of (\d+)', 'rectangle'),
+            (r'radius of (\d+)', 'circle'),
+            (r'base of (\d+).*height of (\d+)', 'triangle')
+        ]
+
+        for pattern, image_type in measurement_patterns:
+            match = re.search(pattern, text)
+            if match:
+                params = self._extract_measurement_params(match, image_type)
+                return getattr(self, f'_draw_{image_type}')(params)
+
+        concept_mapping = {
+            'time': {'type': 'clock', 'params': {'hours': random.randint(1, 12)}},
+            'fraction': {'type': 'fraction', 'params': {
+                'numerator': random.randint(1, 5),
+                'denominator': random.randint(2, 8)
+            }},
+            'graph': {'type': 'graph', 'params': {
+                'type': 'bar',
+                'labels': ['A', 'B', 'C', 'D'],
+                'data': [random.randint(5, 20) for _ in range(4)]
+            }}
+        }
+
+        for concept, config in concept_mapping.items():
+            if concept in text:
+                return getattr(self, f'_draw_{config["type"]}')(config["params"])
+
+        return self._generate_text_based_fallback(question_text)
+
+    def _extract_measurement_params(self, match, image_type):
+        params = {}
+        if image_type == 'rectangle':
+            params = {
+                'length': int(match.group(1)),
+                'width': int(match.group(2))
+            }
+        elif image_type == 'circle':
+            params = {'radius': int(match.group(1))}
+        elif image_type == 'triangle':
+            params = {
+                'base': int(match.group(1)),
+                'height': int(match.group(2))
+            }
+        return params
 
     def _generate_text_based_fallback(self, text):
         accent_color = (
@@ -572,6 +729,7 @@ class QuestionGenerator:
             "Diagram:",
             "Generated by GradeNext"
         ])
+
         fallback_img = create_pillow_image_with_text(
             formatted_text,
             size=(600, 400),
