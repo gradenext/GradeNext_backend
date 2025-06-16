@@ -227,13 +227,13 @@ class QuestionGenerator:
         return qc.get_short_url()
     
     def _process_question_text(self, text, grade):
-        """Process question text with emojis for grades 1-3"""
-        if grade <= 3:
-            try:
-                return emojize(text, language='alias')
-            except Exception as e:
-                logger.warning(f"Emoji processing failed: {str(e)}")
-                return text
+        # """Process question text with emojis for grades 1-3"""
+        # if grade <= 3:
+        #     try:
+        #         return emojize(text, language='alias')
+        #     except Exception as e:
+        #         logger.warning(f"Emoji processing failed: {str(e)}")
+        #         return text
         return text
 
     def generate_question(self, user, grade, subject, topic, level, revision=False):
@@ -323,7 +323,7 @@ class QuestionGenerator:
                     image_generated = False
 
                 question = {
-                    "question_text": self._process_question_text(question_data['questionText'], grade),
+                    "question_text": question_data['questionText'],
                     "options": question_data.get('options', []),
                     "correct_answer": question_data['correctAnswer'],
                     "hint": question_data['hint'],
@@ -360,13 +360,15 @@ class QuestionGenerator:
         text_visual_instruction = ""
         if grade <= 3:
             text_visual_instruction = (
-                "For grades 1-3:\n"
-                "- Use EMOJIS instead of words for objects in the question.\n"
-                "- Structure questions visually with 1 emoji = 1 object.\n"
-                "- Example: '🍎 + 🍎 = ?' or 'If you have 🚗🚗🚗 and get 2 more, how many cars?'\n"
-                "- ALWAYS use emojis for countable objects in the question text.\n"
-                "- Options must be NUMBERS ONLY for math, TEXT ONLY for English, without emojis.\n"
-                "- Strictly avoid generating questions referencing to any image or visual content.\n"
+            "For grades 1 to 3:\n"
+            "- Use simple number-based questions or equations.\n"
+            "- Avoid using emojis or visual symbols.\n"
+            "- Focus on numeric reasoning, basic operations (e.g., 2 + 3, 5 - 1, etc.), comparisons, or simple word problems using only text.\n"
+            "- Do not focus on scenarios based questions.\n "
+            "- Ocasionally, include scenario-based questions.\n"
+            "- Do not generate questions refering to images, diagrams, arrays, or figures unless they are clearly represented within the questionText.\n"
+            "- Ensure the question is solvable by logic or calculation, not visuals.\n"
+            "- Avoid phrases like 'look at the image', 'refer to the diagram', or 'see the array'.\n"
             )
         else:
             text_visual_instruction = "For grades 4 and above, use standard text format without emojis.\n"
@@ -426,8 +428,8 @@ class QuestionGenerator:
         
         
         **Subject-Specific Rules:**
-        - Math: For grades 1-3, use emoji equations or counting with emojis. For grades 4+, use standard math notation with symbols and strictly avoid giving formula in question.
-        - English: For grades 1-3, use emoji sequences to represent actions or scenarios. For grades 4+, use standard text.
+        - Math: For grades 1 to 3, focus on simple number equations or countable values. Use only numbers and euations in the content. No emojis, no references to diagrams unless included in the text.
+        - English: For grades 1 to 3, Use only sentence-based or word-based questions. For grades 4+, use standard text.
         
         
         **Additional Instructions:**
@@ -437,7 +439,7 @@ class QuestionGenerator:
 
         **Hint and Explanation Strict Rules:**
         - The "hint" must be directly relevant to the question asked. It should guide the student without giving away the full answer but must not be generic or unrelated.
-        - Keep the explanation 3–5 lines max. Avoid over-explaining.
+        - Keep the explanation 3 to 5 lines max. Avoid over-explaining.
         - Under **no circumstance** should the explanation justify, validate, or mention incorrect options as being valid in any way.
         - The explanation must **only support the correctAnswer that is generated along with the question** and must not be vague, misleading, or conflict with the provided correct answer.
         - Any inconsistency between the correctAnswer and the explanation is considered invalid.
