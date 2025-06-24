@@ -70,7 +70,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class QuestionRequestSerializer(serializers.Serializer):
     grade = serializers.IntegerField(min_value=1, max_value=8)
-    subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
     session_id = serializers.UUIDField()
 
     def validate(self, data):
@@ -88,7 +88,7 @@ class QuestionRequestSerializer(serializers.Serializer):
     
     
 class RevisionQuestionRequestSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
     session_id = serializers.UUIDField()
 
     def validate(self, data):
@@ -111,7 +111,7 @@ class SubmitAnswerSerializer(serializers.Serializer):
     
 # Add to serializers.py
 class TopicIntroductionSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
     
     
 # class TopicSelectionSerializer(serializers.Serializer):
@@ -136,7 +136,7 @@ class TopicIntroductionSerializer(serializers.Serializer):
 #     subject = serializers.ChoiceField(choices=["mathematics", "english"])
     
 class TopicQuestionRequestSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
     topic = serializers.CharField()
     session_id = serializers.UUIDField()
 
@@ -151,5 +151,5 @@ class TopicQuestionRequestSerializer(serializers.Serializer):
         return data
     
 class SessionSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english"], required=False)
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"], required=False)
     topic = serializers.CharField(required=False)

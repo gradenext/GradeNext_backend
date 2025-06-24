@@ -332,7 +332,7 @@ class SessionAPI(APIView):
         Returns: {
             "session_id": "uuid",
             "expires_at": "iso8601",
-            "subjects": ["mathematics", "english"]
+            "subjects": ["mathematics", "english","science"]
         }
         """
         try:
@@ -987,7 +987,7 @@ class SubjectTopicsAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, subject):
-        if subject not in ["mathematics", "english"]:
+        if subject not in ["mathematics", "english", "science"]:
             return Response({"error": "Invalid subject"}, status=400)
 
         try:

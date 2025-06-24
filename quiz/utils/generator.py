@@ -237,123 +237,125 @@ class QuestionGenerator:
         return text
 
     def generate_question(self, user, grade, subject, topic, level, revision=False):
-        cache_key = QuestionCache.generate_key(
-            grade, subject, topic, level, revision)
-        seen_questions = set(UserQuestionHistory.objects.filter(user=user)
-                             .values_list('question_signature', flat=True))
+        try:
+            cache_key = QuestionCache.generate_key(
+                grade, subject, topic, level, revision)
+            seen_questions = set(UserQuestionHistory.objects.filter(user=user)
+                                .values_list('question_signature', flat=True))
 
-        all_subtopics = SUBJECT_TOPICS[subject][topic]
-        subtopics = random.sample(all_subtopics, min(
-            3, len(all_subtopics))) if all_subtopics else []
+            all_subtopics = SUBJECT_TOPICS[subject][topic]
+            subtopics = random.sample(all_subtopics, min(
+                3, len(all_subtopics))) if all_subtopics else []
 
-        for attempt in range(self.max_retries):
-            try:
-                cached = [q for q in QuestionCache.get(cache_key)
-                          if QuestionCache.generate_signature(q) not in seen_questions]
+            for attempt in range(self.max_retries):
+                try:
+                    cached = [q for q in QuestionCache.get(cache_key)
+                            if QuestionCache.generate_signature(q) not in seen_questions]
 
-                if cached and random.random() < 0.3:  # 30% chance to use cached question
-                    logger.info(f"Using cached question for {cache_key}")
-                    question = random.choice(cached)
+                    if cached and random.random() < 0.3:  # 30% chance to use cached question
+                        logger.info(f"Using cached question for {cache_key}")
+                        question = random.choice(cached)
+                        QuestionCache.add(cache_key, question)
+                        self._record_question(user, question)
+                        return question
+
+                    prompt = self._build_prompt(
+                        grade, subject, topic, subtopics, level, revision, seen_questions)
+                    response = self.client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.3,
+                        max_tokens=1000,
+                        response_format={"type": "json_object"}
+                    )
+
+                    question_data = json.loads(response.choices[0].message.content)
+
+                    question_type = question_data.get('questionType')
+                    if question_type not in ['multiple', 'input']:
+                        raise ValueError("Invalid questionType")
+
+                    if question_type == 'multiple':
+                        if 'options' not in question_data or len(question_data['options']) != 4:
+                            raise ValueError("Multiple-choice question must have exactly 4 options")
+                        if 'correctAnswer' not in question_data or question_data['correctAnswer'] not in question_data['options']:
+                            raise ValueError("Correct answer must be one of the options")
+                    elif question_type == 'input':
+                        if 'options' not in question_data or len(question_data['options']) != 4:
+                            raise ValueError("Input question must have exactly 4 integer options")
+                        for opt in question_data['options']:
+                            try:
+                                int(opt)
+                            except ValueError:
+                                raise ValueError("All options for input type must be integers")
+                        try:
+                            int(question_data['correctAnswer'])
+                        except ValueError:
+                            raise ValueError("Correct answer for input type must be an integer")
+
+                    # ✅ NEW LOGIC: Ensure explanation supports correct answer
+                    if not self._validate_explanation_supports_answer(question_data['explanation'], question_data['correctAnswer']):
+                        raise ValueError("Explanation does not logically support the correct answer")
+
+
+                    required_common_fields = [
+                        'questionText', 'hint', 'explanation']
+                    for field in required_common_fields:
+                        if field not in question_data:
+                            raise ValueError(f"Missing required field: {field}")
+
+                    image_url = None
+                    image_generated = False
+                    try:
+                        if grade >= 4 and 'imageType' in question_data and question_data['imageType']:
+                            image_url, image_generated = self._generate_visual(
+                                question_text=question_data.get(
+                                    "questionText", ""),
+                                image_type=question_data['imageType'],
+                                image_params=question_data.get("imageParams", {})
+                            )
+                        else:
+                            image_url = None
+                            image_generated = False
+                    except Exception as e:
+                        logger.warning(
+                            f"Image generation failed but continuing: {str(e)}")
+                        image_url = None
+                        image_generated = False
+
+                    question = {
+                        "question_text": question_data['questionText'],
+                        "options": question_data.get('options', []),
+                        "correct_answer": question_data['correctAnswer'],
+                        "hint": question_data['hint'],
+                        "explanation": question_data['explanation'],
+                        "image_url": image_url,
+                        "image_generated": image_generated,
+                        "question_type": question_type
+                    }
+
+                    if QuestionCache.generate_signature(question) in seen_questions:
+                        raise ValueError("Duplicate question generated")
+
                     QuestionCache.add(cache_key, question)
                     self._record_question(user, question)
                     return question
 
-                prompt = self._build_prompt(
-                    grade, subject, topic, subtopics, level, revision, seen_questions)
-                response = self.client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=1000,
-                    response_format={"type": "json_object"}
-                )
-
-                question_data = json.loads(response.choices[0].message.content)
-
-                question_type = question_data.get('questionType')
-                if question_type not in ['multiple', 'input']:
-                    raise ValueError("Invalid questionType")
-
-                if question_type == 'multiple':
-                    if 'options' not in question_data or len(question_data['options']) != 4:
-                        raise ValueError("Multiple-choice question must have exactly 4 options")
-                    if 'correctAnswer' not in question_data or question_data['correctAnswer'] not in question_data['options']:
-                        raise ValueError("Correct answer must be one of the options")
-                elif question_type == 'input':
-                    if 'options' not in question_data or len(question_data['options']) != 4:
-                        raise ValueError("Input question must have exactly 4 integer options")
-                    for opt in question_data['options']:
-                        try:
-                            int(opt)
-                        except ValueError:
-                            raise ValueError("All options for input type must be integers")
-                    try:
-                        int(question_data['correctAnswer'])
-                    except ValueError:
-                        raise ValueError("Correct answer for input type must be an integer")
-
-                # ✅ NEW LOGIC: Ensure explanation supports correct answer
-                if not self._validate_explanation_supports_answer(question_data['explanation'], question_data['correctAnswer']):
-                    raise ValueError("Explanation does not logically support the correct answer")
-
-
-                required_common_fields = [
-                    'questionText', 'hint', 'explanation']
-                for field in required_common_fields:
-                    if field not in question_data:
-                        raise ValueError(f"Missing required field: {field}")
-
-                image_url = None
-                image_generated = False
-                try:
-                    if grade >= 4 and 'imageType' in question_data and question_data['imageType']:
-                        image_url, image_generated = self._generate_visual(
-                            question_text=question_data.get(
-                                "questionText", ""),
-                            image_type=question_data['imageType'],
-                            image_params=question_data.get("imageParams", {})
-                        )
-                    else:
-                        image_url = None
-                        image_generated = False
-                except Exception as e:
+                except json.JSONDecodeError as e:
                     logger.warning(
-                        f"Image generation failed but continuing: {str(e)}")
-                    image_url = None
-                    image_generated = False
-
-                question = {
-                    "question_text": question_data['questionText'],
-                    "options": question_data.get('options', []),
-                    "correct_answer": question_data['correctAnswer'],
-                    "hint": question_data['hint'],
-                    "explanation": question_data['explanation'],
-                    "image_url": image_url,
-                    "image_generated": image_generated,
-                    "question_type": question_type
-                }
-
-                if QuestionCache.generate_signature(question) in seen_questions:
-                    raise ValueError("Duplicate question generated")
-
-                QuestionCache.add(cache_key, question)
-                self._record_question(user, question)
-                return question
-
-            except json.JSONDecodeError as e:
-                logger.warning(
-                    f"JSON decode error on attempt {attempt+1}: {str(e)}")
-                continue
-            except KeyError as e:
-                logger.warning(f"Missing key in response: {str(e)}")
-                continue
-            except Exception as e:
-                logger.error(f"Question generation error: {str(e)}")
-                if attempt == self.max_retries - 1:
-                    raise RuntimeError(
-                        "Failed to generate valid question after multiple attempts")
-                continue
-
+                        f"JSON decode error on attempt {attempt+1}: {str(e)}")
+                    continue
+                except KeyError as e:
+                    logger.warning(f"Missing key in response: {str(e)}")
+                    continue
+                except Exception as e:
+                    logger.error(f"Question generation error: {str(e)}")
+                    if attempt == self.max_retries - 1:
+                        raise RuntimeError(
+                            "Failed to generate valid question after multiple attempts")
+                    continue
+        except KeyError:
+            raise ValueError(f"Topic {topic} not found in curriculum for subject {subject}")
         raise RuntimeError("Exhausted all generation attempts")
 
     def _build_prompt(self, grade, subject, topic, subtopics, level, revision, seen_questions):
@@ -372,6 +374,18 @@ class QuestionGenerator:
             )
         else:
             text_visual_instruction = "For grades 4 and above, use standard text format without emojis.\n"
+            
+        science_instruction = ""
+        if subject == "science":
+            science_instruction = (
+                "For science questions:\n"
+                "- Focus on key concepts from the topic and subtopics\n"
+                "- Use age-appropriate scientific terminology\n"
+                "- Include practical applications where possible\n"
+                "- For experiments or observations, describe the scenario clearly\n"
+                "- For grades 4+, you can include basic diagrams if helpful\n"
+            )
+
         image_instruction = (
             "Additionally, include a visual diagram in the JSON to help illustrate the question better, for all grades. Use the following format:\n"
             "- 'imageType': A string indicating the type of image, choose from: 'rectangle', 'number_line', 'fraction', 'clock', 'graph', 'geometric_shape', 'ruler', 'angle', 'cube', 'translation', 'scale_drawing', 'circle', 'right_triangle'\n"
@@ -418,6 +432,7 @@ class QuestionGenerator:
         - Always generate unique numerical values or scenarios each time a question is created.
         
         {text_visual_instruction}
+        {science_instruction if subject == "science" else ""}
         {image_instruction}
         
         **Required JSON Format:**
@@ -430,6 +445,7 @@ class QuestionGenerator:
         **Subject-Specific Rules:**
         - Math: For grades 1 to 3, focus on simple number equations or countable values. Use only numbers and euations in the content. No emojis, no references to diagrams unless included in the text.
         - English: For grades 1 to 3, Use only sentence-based or word-based questions. For grades 4+, use standard text.
+        - Science: Focus on key concepts from the curriculum. Use age-appropriate terminology and practical examples.
         
         
         **Additional Instructions:**
@@ -533,8 +549,13 @@ class QuestionGenerator:
         - If visual formatting like underlining is not possible, place the word in **quotes** or **capitalize it** for clarity:
         - Example: What part of speech is the word **"QUICKLY"** in the sentence: She quickly ran to the store?
         
-
-
+        **Science-Specific Requirements:**
+        - For experimental questions, describe the setup clearly
+        - For observation questions, describe what was observed
+        - For concept questions, focus on one key idea at a time
+        - Use appropriate scientific terminology for the grade level
+        - Include units of measurement where applicable
+        - For diagrams, describe what should be shown (e.g., "diagram of a plant cell")
         """
         return prompt
     

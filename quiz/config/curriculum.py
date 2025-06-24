@@ -29,6 +29,20 @@ GRADE_SUBJECT_CONFIG = {
                 "sight_words": "Sight Words",
                 "basic_reading": "Basic Reading",
             }
+        },
+        "science": {
+            "topics": [
+                "light_and_sound",
+                "plants_and_animals",
+                "patterns_and_weather",
+                "engineering_design"
+            ],
+            "display_names": {
+                "light_and_sound": "Light and Sound",
+                "plants_and_animals": "Plants and Animals",
+                "patterns_and_weather": "Patterns and Weather",
+                "engineering_design": "Engineering Design"
+            }
         }
     },
     2: {
@@ -63,6 +77,20 @@ GRADE_SUBJECT_CONFIG = {
                 "vocabulary": "Vocabulary",
                 "reading": "Reading Comprehension",
             }
+        },
+        "science": {
+            "topics": [
+                "structure_and_properties_of_matter",
+                "interdependent_relationships_in_ecosystems",
+                "earth_systems",
+                "engineering_design"
+            ],
+            "display_names": {
+                "structure_and_properties_of_matter": "Structure and Properties of Matter",
+                "interdependent_relationships_in_ecosystems": "Interdependent Relationships in Ecosystems",
+                "earth_systems": "Earth Systems",
+                "engineering_design": "Engineering Design"
+            }
         }
     },
     3: {
@@ -95,6 +123,20 @@ GRADE_SUBJECT_CONFIG = {
                 "vocabulary": "Vocabulary",
                 "reading": "Reading Comprehension",
                 "writing": "Writing Skills",
+            }
+        },
+        "science": {
+            "topics": [
+                "forces_and_motion",
+                "inheritance_and_adaptation",
+                "weather_and_climate",
+                "engineering_design"
+            ],
+            "display_names": {
+                "forces_and_motion": "Forces and Motion",
+                "inheritance_and_adaptation": "Inheritance and Adaptation",
+                "weather_and_climate": "Weather and Climate",
+                "engineering_design": "Engineering Design"
             }
         }
     },
@@ -131,6 +173,20 @@ GRADE_SUBJECT_CONFIG = {
                 "reading": "Critical Reading",
                 "writing": "Creative Writing",
             }
+        },
+        "science": {
+            "topics": [
+                "energy",
+                "structures_and_processes_of_living_organisms",
+                "processes_that_shape_the_earth",
+                "engineering_design"
+            ],
+            "display_names": {
+                "energy": "Energy",
+                "structures_and_processes_of_living_organisms": "Structures and Processes of Living Organisms",
+                "processes_that_shape_the_earth": "Processes That Shape the Earth",
+                "engineering_design": "Engineering Design"
+            }
         }
     },
     5: {
@@ -164,6 +220,21 @@ GRADE_SUBJECT_CONFIG = {
                 "reading": "Advanced Reading",
                 "writing": "Essay Writing",
                 "literature": "Literature Analysis",
+            }
+        },
+        "science": {
+            "topics": [
+                "matter_and_its_interactions",
+                "ecosystems_interactions_energy_dynamics",
+                "earth_systems_space_systems",
+                "engineering_design"
+            ],
+            "display_names": {
+                "matter_and_its_interactions": "Matter and Its Interactions",
+                "motion_stability_forces_interactions": "Motion and Stability: Forces and Interactions",
+                "ecosystems_interactions_energy_dynamics": "Ecosystems: Interactions, Energy, and Dynamics",
+                "earth_systems_space_systems": "Earth Systems and Space Systems",
+                "engineering_design": "Engineering Design"
             }
         }
     },
@@ -200,6 +271,22 @@ GRADE_SUBJECT_CONFIG = {
                 "reading": "Analytical Reading",
                 "writing": "Structured Writing",
                 "literature": "Literary Analysis"
+            }
+        },
+        "science": {
+            "topics": [
+                "matter_and_interactions",
+                "cells_and_organisms_heredity_genetics",
+                "ecosystems_and_biodiversity",
+                "earth_systems_space_systems",
+                "engineering_design"
+            ],
+            "display_names": {
+                "matter_and_interactions": "Motion, Stability, Forces, Interactions and Energy",
+                "cells_and_organisms_heredity_genetics": "Cells and Organisms, Heredity and Genetics",
+                "ecosystems_and_biodiversity": "Ecosystems and Biodiversity",
+                "earth_systems_space_systems": "Earth Systems and Space Systems",
+                "engineering_design": "Engineering Design"
             }
         }
     },
@@ -238,6 +325,20 @@ GRADE_SUBJECT_CONFIG = {
                 "writing": "Persuasive Writing",
                 "literature": "Literary Criticism"
             }
+        },
+        "science": {
+            "topics": [
+                "matter_energy_forces",
+                "life_science",
+                "earth_systems_space_systems",
+                "engineering_design"
+            ],
+            "display_names": {
+                "matter_energy_forces": "Structure and Properties of Matter, Motion and Stability, Energy",
+                "life_science": "Life Science",
+                "earth_systems_space_systems": "Earth Systems and Space Systems",
+                "engineering_design": "Engineering Design"
+            }
         }
     },
     
@@ -275,11 +376,24 @@ GRADE_SUBJECT_CONFIG = {
                 "writing": "Research Writing",
                 "literature": "Comparative Literature"
             }
+        },
+        "science": {
+            "topics": [
+                "physical_science",
+                "cells_genetics_natural_selection_adaptation",
+                "earth_systems_weather_climate_space_systems",
+                "engineering_design"
+            ],
+            "display_names": {
+                "physical_science": "Forces and Motion, Matter and Interactions, Energy",
+                "cells_genetics_natural_selection_adaptation": "Cells and Genetics, Natural Selection and Adaptation",
+                "earth_systems_weather_climate_space_systems": "Earth Systems, Weather and Climate, Space Systems",
+                "engineering_design": "Engineering Design"
+            }
         }
     }
     
 }
-
 
 
 SUBJECT_TOPICS = {
@@ -591,11 +705,11 @@ SUBJECT_TOPICS = {
         "Let’s Put It to Work"
     ],
     "expressions_equations_and_inequalities": [
-        "Representing Situations of the Form \( px + q = r \) and \( p(x + q) = r \)",
-        "Solving Equations of the Form \( px + q = r \) and \( p(x + q) = r \) and Problems That Lead to Those Equations",
+        r"Representing Situations of the Form \( px + q = r \) and \( p(x + q) = r \)",
+        r"Solving Equations of the Form \( px + q = r \) and \( p(x + q) = r \) and Problems That Lead to Those Equations",
         "Inequalities",
         "Writing Equivalent Expressions",
-        "Let’s Put It to Work"
+        "Let's Put It to Work"
     ],
     "angles_triangles_and_prisms": [
         "Angle Relationships",
@@ -686,7 +800,204 @@ SUBJECT_TOPICS = {
         "reading": ["comprehension", "main idea", "details"],
         "writing": ["sentences", "paragraphs", "essays"],
         "literature": ["story elements", "analysis"]
-    }
+    },
+    "science": {
+    # Grade 1 Science
+    "light_and_sound": [
+        "Investigate how light helps us see and how sound travels",
+        "Explore how vibrations make sound"
+    ],
+    "plants_and_animals": [
+        "Explore animal needs, behaviors, and habitats",
+        "Understand how plants grow and what they need to survive",
+        "Investigate relationships between living things and their environments"
+    ],
+    "patterns_and_weather": [
+        "Observe patterns in the sun, moon, and stars",
+        "Record weather patterns and discuss seasons", 
+        "Understand how weather affects people and animals"
+    ],
+    "engineering_design": [
+        "Define a simple problem and develop a solution",
+        "Build a shelter or design a tool",
+        "Communicate solutions with drawings or models"
+    ],
+    
+    # Grade 2 Science
+    "structure_and_properties_of_matter": [
+        "Classify materials based on observable properties",
+        "Test materials for their uses and design solutions",
+        "Best material for specific purposes"
+    ],
+    "interdependent_relationships_in_ecosystems": [
+        "Understand how plants and animals depend on their surroundings and each other",
+        "Observe how animals disperse seeds and pollinate plants"
+    ],
+    "earth_systems": [
+        "Understand patterns in weather and seasonal changes",
+        "Observe and describe water in its different forms",
+        "Compare land and water features on Earth"
+    ],
+    "engineering_design": [
+        "Define a simple design problem",
+        "Develop possible solutions and compare their effectiveness",
+        "Build and test models and improve designs"
+    ],
+    
+    # Grade 3 Science
+    "forces_and_motion": [
+        "Explore balanced and unbalanced forces",
+        "How motion changes",
+        "Basic ideas of electric forces"
+    ],
+    "inheritance_and_adaptation": [
+        "Understand that organisms inherit traits from parents",
+        "Learn how traits help survival",
+        "How environments affect traits"
+    ],
+    "weather_and_climate": [
+        "Measure weather patterns and understand how climates vary",
+        "Study how communities prepare for hazards like floods or storms"
+    ],
+    "engineering_design": [
+        "Define a problem that needs solving and design a solution",
+        "Plan and carry out fair tests with variables and controls"
+    ],
+    
+    # Grade 4 Science  
+    "energy": [
+        "Forms of energy: sound, light, heat, and electric currents",
+        "How energy is transferred and transformed",
+        "Simple circuits and conductors vs. insulators"
+    ],
+    "structures_and_processes_of_living_organisms": [
+        "Plant and animal internal/external structures for survival",
+        "Growth, behavior, and reproduction structures",
+        "How animals sense and respond to different stimuli"
+    ],
+    "processes_that_shape_the_earth": [
+        "Erosion, weathering, and deposition",
+        "Earthquakes, volcanoes, and natural hazards",
+        "The rock cycle and types of soil",
+        "Maps and models to understand Earth's surface features"
+    ],
+    "engineering_design": [
+        "Define a simple design problem",
+        "Generate and compare multiple solutions",
+        "Plan and conduct fair tests to improve designs"
+    ],
+    
+    # Grade 5 Science
+    "matter_and_its_interactions": [
+        "Structure of matter and conservation during changes",
+        "Conduct investigations into physical and chemical changes",
+        "Motion and Stability: Forces and Interactions",
+        "Explore gravitational, magnetic, and other forces"
+    ],
+    "ecosystems_interactions_energy_dynamics": [
+        "Food webs and energy transfer in ecosystems",
+        "How matter cycles among the air, water, soil, and organisms"
+    ],
+    "earth_systems_space_systems": [
+        "The water cycle and how it connects Earth systems",
+        "Weathering, erosion, and deposition shaping landforms",
+        "Sun, Earth, and Moon relationships",
+        "Patterns of stars and planets in the night sky"
+    ],
+    "engineering_design": [
+        "Define and solve real-world problems using the engineering design process"
+    ],
+    
+    # Grade 6 Science
+    "matter_and_interactions": [
+        "Structure of atoms and molecules",
+        "Changes of matter and conservation during physical and chemical changes",
+        "Types of forces (gravity, friction, magnetic)",
+        "Newton's Laws of Motion (introduction level)",
+        "Energy transfer through different systems",
+        "Potential and kinetic energy"
+    ],
+    "cells_and_organisms_heredity_genetics": [
+        "Structure and function of cells",
+        "How cells form tissues and organs",
+        "Traits and inheritance",
+        "Variation of traits in populations",
+        "Food webs, energy flow, and interdependence in ecosystems",
+        "Impact of humans on ecosystems"
+    ],
+    "earth_systems_space_systems": [
+        "Plate tectonics and Earth's structure",
+        "Weather and climate",
+        "Water cycle and its global influence",
+        "Motion of Earth, Sun, and Moon",
+        "Scale and structure of the solar system"
+    ],
+    "engineering_design": [
+        "Define problems more precisely",
+        "Design, test, and modify solutions",
+        "Analyze data and redesign based on constraints"
+    ],
+    
+    # Grade 7 Science
+    "matter_energy_forces": [
+        "Develop models to describe atomic structure",
+        "Explain how chemical reactions involve rearrangement of atoms",
+        "Newton's Laws of Motion",
+        "Forces and interactions between objects",
+        "Conservation of energy",
+        "Transfer and transformation of energy in systems"
+    ],
+    "life_science": [
+        "Functions of cell structures and systems",
+        "How organisms obtain and use energy",
+        "Inheritance of traits, variation of traits",
+        "Genes and environmental influence on traits",
+        "Relationships among organisms, food chains, energy flow",
+        "Impact of human activity on ecosystems"
+    ],
+    "earth_systems_space_systems": [
+        "Water cycle, weathering, erosion, and Earth surface processes",
+        "Natural hazards (earthquakes, floods, volcanoes)",
+        "Sun-Earth-Moon system (seasons, eclipses, tides)",
+        "Scale and structure of the solar system"
+    ],
+    "engineering_design": [
+        "Define a design problem that can be solved through engineering",
+        "Generate and compare multiple possible solutions",
+        "Analyze test results to improve the design"
+    ],
+    
+    # Grade 8 Science
+    "physical_science": [
+        "Newton's Laws of Motion",
+        "Predict motion using forces and mass relationships",
+        "Atomic structure and chemical reactions",
+        "Law of conservation of mass in closed systems",
+        "Understand kinetic and potential energy",
+        "Analyze energy transfers in systems"
+    ],
+    "cells_genetics_natural_selection_adaptation": [
+        "Cell theory and functions of organelles",
+        "Sexual and asexual reproduction",
+        "Mendelian genetics and inheritance of traits",
+        "Mechanisms of evolution and biodiversity",
+        "Artificial selection and environmental influence on species"
+    ],
+    "earth_systems_weather_climate_space_systems": [
+        "Plate tectonics, earthquakes, and volcanism",
+        "The rock cycle and geologic time scale",
+        "Global climate patterns and human impact",
+        "Evidence for climate change and mitigation strategies",
+        "Gravity's role in planetary motion",
+        "History of the universe and solar system"
+    ],
+    "engineering_design": [
+        "Define real-world problems with criteria and constraints",
+        "Develop and optimize multiple design solutions",
+        "Use models, data, and simulations to evaluate designs"
+    ]
+}
+    
 }
 
 DIFFICULTY_LEVELS = [
