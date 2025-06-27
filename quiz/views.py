@@ -21,11 +21,14 @@ from .utils.coupons import validate_coupon
 from .utils.email import send_otp_email
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from .utils.generator import QuestionGenerator, SYSTEM_PROMPT
 
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+SESSION_PROMPT_CACHE = {}
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterAPI(APIView):
@@ -372,6 +375,12 @@ class SessionAPI(APIView):
                     completed_topics=user_progress.completed_topics.copy()
                 )
                 initialized_subjects.append(subject)
+                
+            SESSION_PROMPT_CACHE[str(new_session.session_id)] = SYSTEM_PROMPT
+            if SYSTEM_PROMPT:
+                logger.info(f"Storing system prompt in SESSION_PROMPT_CACHE for session {new_session.session_id}")
+            else:
+                logger.warning("SYSTEM_PROMPT is not set, using default prompt")
 
             return Response({
                 'session_id': str(new_session.session_id),
@@ -391,6 +400,7 @@ class ExpireSessionAPI(APIView):
         Expire a specific session
         """
         try:
+            session_id_str = str(session_id)
             session = UserSession.objects.get(
                 session_id=session_id,
                 user=request.user,
@@ -412,6 +422,9 @@ class ExpireSessionAPI(APIView):
                     current_level=progress.current_level,
                     completed_topics=progress.completed_topics
                 )
+                
+            if session_id_str in SESSION_PROMPT_CACHE:
+                del SESSION_PROMPT_CACHE[session_id_str]
 
             return Response({'status': 'session expired'}, 
                           status=status.HTTP_200_OK)
@@ -559,39 +572,55 @@ class QuestionAPI(APIView):
                 session=session,
                 subject=data['subject']
             )
+            
+            system_prompt = SESSION_PROMPT_CACHE.get(str(session_id))
+            if system_prompt:
+                logger.info(f"Using cached system prompt for session {session_id}")
+            else:
+                logger.info(f"No cached prompt found. Using default SYSTEM_PROMPT")
+                system_prompt = SYSTEM_PROMPT
+                SESSION_PROMPT_CACHE[str(session_id)] = system_prompt
 
-            question_data = self._generate_question(request.user, data, session_progress)
-            new_question_id = uuid.uuid4()
+            questions = self._generate_batch(request.user, data, session_progress, system_prompt)
+            response_payload = []
 
-            # Save question record
-            QuestionRecord.objects.create(
-                user=request.user,
-                session=session,
-                question_id=new_question_id,
-                question_text=question_data['question_text'],
-                options=question_data['options'],
-                correct_answer=question_data['correct_answer'],
-                subject=data['subject'],
-                topic=session_progress.current_topic,
-                level=session_progress.current_level,
-                question_type='regular',
-                # image_url=question_data.get('image_url')  
-            )
+            for question_data in questions:
+                new_question_id = uuid.uuid4()
+
+                QuestionRecord.objects.create(
+                    user=request.user,
+                    session=session,
+                    question_id=new_question_id,
+                    question_text=question_data['question_text'],
+                    options=question_data['options'],
+                    correct_answer=question_data['correct_answer'],
+                    subject=data['subject'],
+                    topic=session_progress.current_topic,
+                    level=session_progress.current_level,
+                    question_type='regular',
+                )
+
+                response_payload.append({
+                    'question': question_data['question_text'],
+                    'options': question_data['options'],
+                    'hint': question_data['hint'],
+                    'explanation': question_data['explanation'],
+                    'image_generated': question_data.get('image_generated', False),
+                    'image_url': question_data.get('image_url'),
+                    'question_id': str(new_question_id),
+                    'question_type': question_data['question_type']
+                })
 
             self._update_progress(session_progress)
             
+            print(f"Generated {len(response_payload)} questions for session {session_id}")
+            print("response_payload:", response_payload)
 
             return Response({
-                'question': question_data['question_text'],
-                'options': question_data['options'],
-                'hint': question_data['hint'],
-                'explanation': question_data['explanation'],
-                'image_generated': question_data.get('image_generated', False),
-                'image_url': question_data.get('image_url'),
-                'question_id': str(new_question_id),
-                'question_type': question_data['question_type'],
+                'questions': response_payload,
                 'progress': self._progress_status(session_progress)
             })
+
 
         except UserSession.DoesNotExist:
             return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
@@ -600,15 +629,28 @@ class QuestionAPI(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _generate_question(self, user, data, progress):
+    # def _generate_question(self, user, data, progress,system_prompt):
+    #     generator = QuestionGenerator()
+    #     return generator.generate_question(
+    #         user=user,
+    #         grade=data['grade'],
+    #         subject=data['subject'],
+    #         topic=progress.current_topic,
+    #         level=progress.current_level,
+    #         system_prompt=system_prompt
+    #     )
+    
+    def _generate_batch(self, user, data, progress, system_prompt):
         generator = QuestionGenerator()
-        return generator.generate_question(
+        return generator.generate_batch_questions(
             user=user,
             grade=data['grade'],
             subject=data['subject'],
             topic=progress.current_topic,
-            level=progress.current_level
+            level=progress.current_level,
+            system_prompt=system_prompt
         )
+
 
     def _update_progress(self, progress):
         if progress.current_streak >= 5:
@@ -659,6 +701,83 @@ class QuestionAPI(APIView):
             'session_id': str(progress.session.session_id)
         }
 
+# class RevisionQuestionAPI(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         serializer = RevisionQuestionRequestSerializer(
+#             data=request.data,
+#             context={'request': request}
+#         )
+#         if not serializer.is_valid():
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+#         if request.user.plan not in ['pro', 'enterprise']:
+#             return Response({'error': 'Pro plan required for revisions'}, status=403)
+
+#         data = serializer.validated_data
+#         session_id = data['session_id']
+#         subject = data['subject']
+
+#         try:
+#             session = UserSession.objects.get(
+#                 session_id=session_id,
+#                 user=request.user,
+#                 is_active=True
+#             )
+
+#             user_progress = UserProgress.objects.get(
+#                 user=request.user,
+#                 grade=request.user.grade,
+#                 subject=subject
+#             )
+
+#             topic = random.choice(user_progress.completed_topics)
+#             level = random.choice(DIFFICULTY_LEVELS)
+
+#             generator = QuestionGenerator()
+#             question = generator.generate_question(
+#                 user=request.user,
+#                 grade=request.user.grade,
+#                 subject=subject,
+#                 topic=topic,
+#                 level=level,
+#                 revision=True
+#             )
+
+#             # Create question record for validation
+#             new_question_id = uuid.uuid4()
+#             QuestionRecord.objects.create(
+#                 user=request.user,
+#                 session=session,
+#                 question_id=new_question_id,
+#                 question_text=question['question_text'],
+#                 options=question['options'],
+#                 correct_answer=question['correct_answer'],
+#                 subject=subject,
+#                 topic=topic,
+#                 level=level
+#             )
+
+#             return Response({
+#                 'question': question['question_text'],
+#                 'options': question['options'],
+#                 'hint': question['hint'],
+#                 'explanation': question['explanation'],
+#                 'question_id': str(new_question_id),
+#                 'image_generated': question.get('image_generated', False),
+#                 'image_url': question.get('image_url'),
+#                 'question_type': question['question_type'],
+#                 'metadata': {
+#                     'type': 'revision',
+#                     'topic': topic,
+#                     'level': level
+#                 }
+#             })
+
+#         except Exception as e:
+#             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class RevisionQuestionAPI(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -693,39 +812,57 @@ class RevisionQuestionAPI(APIView):
             topic = random.choice(user_progress.completed_topics)
             level = random.choice(DIFFICULTY_LEVELS)
 
+            # Get system prompt
+            system_prompt = SESSION_PROMPT_CACHE.get(str(session_id))
+            if system_prompt:
+                logger.info(f"Using cached system prompt for session {session_id}")
+            else:
+                logger.info(f"No cached prompt found. Using default SYSTEM_PROMPT")
+                system_prompt = SYSTEM_PROMPT
+                SESSION_PROMPT_CACHE[str(session_id)] = system_prompt
+
+            # Batch generate up to 10 revision questions
             generator = QuestionGenerator()
-            question = generator.generate_question(
+            questions = generator.generate_batch_questions(
                 user=request.user,
                 grade=request.user.grade,
                 subject=subject,
                 topic=topic,
                 level=level,
-                revision=True
+                revision=True,
+                system_prompt=system_prompt
             )
 
-            # Create question record for validation
-            new_question_id = uuid.uuid4()
+            if not questions:
+                return Response({'error': 'Failed to generate questions'}, status=500)
+
+            # Take the first question for response
+            selected = questions[0]
+            question_id = uuid.uuid4()
+
+            # Save to DB
             QuestionRecord.objects.create(
                 user=request.user,
                 session=session,
-                question_id=new_question_id,
-                question_text=question['question_text'],
-                options=question['options'],
-                correct_answer=question['correct_answer'],
+                question_id=question_id,
+                question_text=selected['question_text'],
+                options=selected['options'],
+                correct_answer=selected['correct_answer'],
                 subject=subject,
                 topic=topic,
-                level=level
+                level=level,
+                question_type='revision'
             )
 
             return Response({
-                'question': question['question_text'],
-                'options': question['options'],
-                'hint': question['hint'],
-                'explanation': question['explanation'],
-                'question_id': str(new_question_id),
-                'image_generated': question.get('image_generated', False),
-                'image_url': question.get('image_url'),
-                'question_type': question['question_type'],
+                'question': selected['question_text'],
+                'options': selected['options'],
+                'hint': selected['hint'],
+                'explanation': selected['explanation'],
+                'question_id': str(question_id),
+                'image_generated': selected.get('image_generated', False),
+                'image_url': selected.get('image_url'),
+                'question_type': selected['question_type'],
                 'metadata': {
                     'type': 'revision',
                     'topic': topic,
@@ -733,8 +870,13 @@ class RevisionQuestionAPI(APIView):
                 }
             })
 
+        except UserSession.DoesNotExist:
+            return Response({'error': 'Invalid session'}, status=400)
+        except UserProgress.DoesNotExist:
+            return Response({'error': 'User progress not found'}, status=400)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 # quiz/views.py (update SubmitAnswerAPI)
@@ -1041,25 +1183,25 @@ class TopicQuestionAPI(APIView):
 
     def post(self, request):
         serializer = TopicQuestionRequestSerializer(
-            data=request.data, 
+            data=request.data,
             context={'request': request}
         )
-        
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if request.user.plan != 'enterprise':
             return Response({'error': 'Enterprise plan required for topic practice'}, status=403)
 
         data = serializer.validated_data
-        
+
         try:
             session = UserSession.objects.get(
                 session_id=data['session_id'],
                 user=request.user,
                 is_active=True
             )
-            
+
             # Ensure session progress exists for this subject
             SessionProgress.objects.get_or_create(
                 session=session,
@@ -1073,7 +1215,6 @@ class TopicQuestionAPI(APIView):
                 }
             )
 
-            # Get or create topic progress
             topic_progress, _ = UserTopicProgress.objects.get_or_create(
                 user=request.user,
                 subject=data['subject'],
@@ -1081,46 +1222,66 @@ class TopicQuestionAPI(APIView):
                 defaults={'current_level': DIFFICULTY_LEVELS[0]}
             )
 
-            # Generate question
+            # Get system prompt if cached
+            session_id = str(data['session_id'])
+            system_prompt = SESSION_PROMPT_CACHE.get(session_id)
+            
+            if system_prompt:
+                logger.info(f"Using cached system prompt for session {session_id}")
+            else:
+                logger.info(f"No cached prompt found for session {session_id}, using default SYSTEM_PROMPT")
+                system_prompt = SYSTEM_PROMPT
+                SESSION_PROMPT_CACHE[session_id] = system_prompt
+
+            # Generate batch of questions
             generator = QuestionGenerator()
-            question = generator.generate_question(
+            questions = generator.generate_batch_questions(
                 user=request.user,
                 grade=request.user.grade,
                 subject=data['subject'],
                 topic=data['topic'],
-                level=topic_progress.current_level
+                level=topic_progress.current_level,
+                system_prompt=system_prompt
             )
 
-            # Create question record
-            new_question_id = uuid.uuid4()
-            QuestionRecord.objects.create(
-                user=request.user,
-                session=session,
-                question_id=new_question_id,
-                question_text=question['question_text'],
-                options=question['options'],
-                correct_answer=question['correct_answer'],
-                subject=data['subject'],
-                topic=data['topic'],
-                level=topic_progress.current_level,
-                question_type='topic_practice'
-            )
+            response_questions = []
+
+            for question in questions:
+                new_question_id = uuid.uuid4()
+
+                # Save each question to DB
+                QuestionRecord.objects.create(
+                    user=request.user,
+                    session=session,
+                    question_id=new_question_id,
+                    question_text=question['question_text'],
+                    options=question['options'],
+                    correct_answer=question['correct_answer'],
+                    subject=data['subject'],
+                    topic=data['topic'],
+                    level=topic_progress.current_level,
+                    question_type='topic_practice',
+                )
+
+                response_questions.append({
+                    'question': question['question_text'],
+                    'options': question['options'],
+                    'hint': question['hint'],
+                    'explanation': question['explanation'],
+                    'image_generated': question.get('image_generated', False),
+                    'image_url': question.get('image_url'),
+                    'question_id': str(new_question_id),
+                    'question_type': question['question_type'],
+                })
 
             return Response({
-                'question': question['question_text'],
-                'options': question['options'],
-                'hint': question['hint'],
-                'explanation': question['explanation'],
-                'question_id': str(new_question_id),
-                'image_generated': question.get('image_generated', False),
-                'image_url': question.get('image_url'),
-                'question_type': question['question_type'],
+                'questions': response_questions,
                 'metadata': {
-                    'type': 'topic_practice',
-                    'topic': data['topic'],
-                    'current_level': topic_progress.current_level,
-                    'current_streak': 0  # Not used in topic practice
-                }
+                        'type': 'topic_practice',
+                        'topic': data['topic'],
+                        'current_level': topic_progress.current_level,
+                        'current_streak': 0  # Not used in topic practice
+                    }
             })
 
         except UserSession.DoesNotExist:
