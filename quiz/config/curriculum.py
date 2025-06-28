@@ -231,7 +231,6 @@ GRADE_SUBJECT_CONFIG = {
             ],
             "display_names": {
                 "matter_and_its_interactions": "Matter and Its Interactions",
-                "motion_stability_forces_interactions": "Motion and Stability: Forces and Interactions",
                 "ecosystems_interactions_energy_dynamics": "Ecosystems: Interactions, Energy, and Dynamics",
                 "earth_systems_space_systems": "Earth Systems and Space Systems",
                 "engineering_design": "Engineering Design"
@@ -891,7 +890,7 @@ SUBJECT_TOPICS = {
     "matter_and_its_interactions": [
         "Structure of matter and conservation during changes",
         "Conduct investigations into physical and chemical changes",
-        "Motion and Stability: Forces and Interactions",
+        "Motion and Stability of Forces and Interactions",
         "Explore gravitational, magnetic, and other forces"
     ],
     "ecosystems_interactions_energy_dynamics": [
@@ -924,6 +923,12 @@ SUBJECT_TOPICS = {
         "Variation of traits in populations",
         "Food webs, energy flow, and interdependence in ecosystems",
         "Impact of humans on ecosystems"
+    ],
+    "ecosystems_and_biodiversity": [
+        "Ecosystem dynamics and stability",
+        "Biodiversity and its importance",
+        "Natural selection and adaptation",
+        "Human impact on biodiversity and ecosystems"
     ],
     "earth_systems_space_systems": [
         "Plate tectonics and Earth's structure",

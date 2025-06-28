@@ -97,16 +97,27 @@ class QuestionGenerator:
                     if field not in qdata:
                         raise ValueError(f"Missing required field: {field}")
 
+                # Shuffle options and update correct_answer
+                options = qdata.get('options', [])
+                correct = qdata['correctAnswer']
+
+                if correct in options:
+                    random.shuffle(options)
+                    correct_index = options.index(correct)
+                else:
+                    continue  # Skip if somehow the correct answer isn't in options
+
                 question = {
                     "question_text": qdata['questionText'],
-                    "options": qdata.get('options', []),
-                    "correct_answer": qdata['correctAnswer'],
+                    "options": options,
+                    "correct_answer": options[correct_index],
                     "hint": qdata['hint'],
                     "explanation": qdata['explanation'],
                     "image_url": None,
                     "image_generated": False,
                     "question_type": question_type
                 }
+
 
                 if QuestionCache.generate_signature(question) in seen_questions:
                     continue
@@ -130,6 +141,9 @@ class QuestionGenerator:
 
     def _build_prompt(self, grade, subject, topic, subtopics, level, revision, seen_questions, system_prompt, batch=False):
         system_prompt = system_prompt or SYSTEM_PROMPT
+        
+        question_type = random.choice(['multiple', 'input'])
+
         if grade <= 3:
             text_visual_instruction = (
                 "For grades 1 to 3:\n"
@@ -137,7 +151,7 @@ class QuestionGenerator:
                 "- Avoid using emojis or visual symbols.\n"
                 "- Focus on numeric reasoning, basic operations (e.g., 2 + 3, 5 - 1, etc.), comparisons, or simple word problems using only text.\n"
                 "- Do not focus on scenarios based questions.\n"
-                "- Ocasionally, include scenario-based questions.\n"
+                "- Occasionally, include scenario-based questions.\n"
                 "- Do not generate questions referring to images, diagrams, arrays, or figures unless they are clearly represented within the questionText.\n"
                 "- Ensure the question is solvable by logic or calculation, not visuals.\n"
                 "- Avoid phrases like 'look at the image', 'refer to the diagram', or 'see the array'.\n"
@@ -156,34 +170,40 @@ class QuestionGenerator:
                 "- For grades 4+, you can include basic diagrams if helpful\n"
             )
 
-        question_type = random.choice(['multiple', 'input'])
-
-        required_json = """
-        {
-            "questionType": "%s",
-            "questionText": "The question text",
-            "options": ["Option1", "Option2", "Option3", "Option4"],
-            "correctAnswer": "CorrectOption",
-            "hint": "A helpful clue or approach directly related to solving this specific question.",
-            "explanation": "A detailed explanation that clearly and logically leads to the correct answer provided above. The explanation must only support the correctAnswer and must not describe or validate any incorrect options."
-        }
-        """ % question_type
+        def generate_sample_question_json(question_type):
+            return f"""
+            {{
+                "questionType": "{question_type}",
+                "questionText": "The question text",
+                "options": ["Option1", "Option2", "Option3", "Option4"],
+                "correctAnswer": "CorrectOption",
+                "hint": "A helpful clue or approach directly related to solving this specific question.",
+                "explanation": "A detailed explanation that clearly and logically leads to the correct answer provided above. The explanation must only support the correctAnswer and must not describe or validate any incorrect options."
+            }}
+            """
 
         focus = f", specifically focusing on {', '.join(subtopics)}" if subtopics else ""
 
         if batch:
-            user_prompt = (
-                f"Generate 10 {level} difficulty {subject} questions for grade {grade} students about {topic}{focus}. "
-                "Return ONLY a valid JSON array of 10 question objects, each in the format shown below. Do not add any explanation or text outside the JSON array:\n\n" + required_json
-            )
+            # Create 10 random JSON examples with random question types
+            sample_jsons = "\n\n".join([generate_sample_question_json(random.choice(['multiple', 'input'])) for _ in range(10)])
 
+            user_prompt = (
+                f"Generate 10 {level} difficulty {subject} questions for grade {grade} students about {topic}{focus}.\n"
+                + text_visual_instruction + "\n" + science_instruction + "\n\n"
+                "Return ONLY a valid JSON array of 10 question objects, each in the format shown below. Do not add any explanation or text outside the JSON array:\n\n"
+                + sample_jsons
+            )
         else:
+            required_json = generate_sample_question_json(question_type)
             user_prompt = (
                 f"Generate a {level} difficulty {subject} question for grade {grade} students about {topic}{focus}.\n\n"
-                + text_visual_instruction + "\n" + science_instruction + "\n\nRequired JSON Format:\n" + required_json
+                + text_visual_instruction + "\n" + science_instruction + "\n\n"
+                "Required JSON Format:\n" + required_json
             )
 
         return system_prompt.strip() + "\n\n" + user_prompt.strip()
+
 
     def _validate_explanation_supports_answer(self, explanation, correct_answer):
         normalized_explanation = explanation.lower().replace(',', '').strip()
