@@ -608,7 +608,9 @@ class QuestionAPI(APIView):
                     'image_generated': question_data.get('image_generated', False),
                     'image_url': question_data.get('image_url'),
                     'question_id': str(new_question_id),
-                    'question_type': question_data['question_type']
+                    'question_type': question_data['question_type'],
+                    'current_topic': session_progress.current_topic,
+                    'current_level': session_progress.current_level,
                 })
 
             self._update_progress(session_progress)
