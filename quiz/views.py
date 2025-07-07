@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord,UserTopicProgress,OTPVerification
-from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer,TopicQuestionRequestSerializer,VerifyOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, RevisionQuestionRequestSerializer, SubmitAnswerSerializer, QuestionRequestSerializer,TopicIntroductionSerializer,TopicQuestionRequestSerializer,VerifyOTPSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,CloudinaryImageUploadSerializer
 from django.utils import timezone
 from django.db.utils import IntegrityError
 import random
@@ -22,6 +22,7 @@ from .utils.email import send_otp_email
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .utils.generator import QuestionGenerator, SYSTEM_PROMPT
+import cloudinary.uploader
 
 
 logger = logging.getLogger(__name__)
@@ -449,7 +450,11 @@ class UserProfileAPI(APIView):
         from django.db.models import Count, Case, When, IntegerField
 
         # Get statistics from all answered questions
-        topic_stats = QuestionRecord.objects.filter(user=user).values(
+        topic_stats = QuestionRecord.objects.filter(
+            user=user,
+            user_answer__isnull=False  # Only include answered questions
+        ).values(
+
             'subject', 'topic'
         ).annotate(
             correct=Count(
@@ -1290,3 +1295,30 @@ class TopicQuestionAPI(APIView):
             return Response({'error': 'Invalid session'}, status=400)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+
+
+# Cognitory upload image API
+class ImageUploadAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CloudinaryImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        images = serializer.validated_data['images']
+        uploaded_urls = []
+        upload_id = str(uuid.uuid4())
+
+        try:
+            for img in images:
+                result = cloudinary.uploader.upload(img, folder=f"quiz_uploads/{upload_id}/")
+                uploaded_urls.append(result["secure_url"])
+
+            return Response({
+                "image_id": upload_id,
+                "image_urls": uploaded_urls
+            }, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

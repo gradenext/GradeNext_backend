@@ -16,6 +16,7 @@ from .views import (
     VerifyOTPAPI,
     ForgotPasswordAPI,
     ResetPasswordAPI,
+    ImageUploadAPI,
 )
 
 urlpatterns = [
@@ -35,4 +36,5 @@ urlpatterns = [
     path('auth/verify-otp/', VerifyOTPAPI.as_view(), name='verify-otp'),
     path('auth/forgot-password/', ForgotPasswordAPI.as_view(), name='forgot-password'),
     path('auth/reset-password/', ResetPasswordAPI.as_view(), name='reset-password'),
+    path('upload-images/', ImageUploadAPI.as_view(), name='upload-images'),
 ]

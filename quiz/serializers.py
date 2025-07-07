@@ -153,3 +153,10 @@ class TopicQuestionRequestSerializer(serializers.Serializer):
 class SessionSerializer(serializers.Serializer):
     subject = serializers.ChoiceField(choices=["mathematics", "english", "science"], required=False)
     topic = serializers.CharField(required=False)
+
+class CloudinaryImageUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(
+        child=serializers.ImageField(),
+        allow_empty=False,
+        write_only=True
+    )
