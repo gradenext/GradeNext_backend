@@ -167,7 +167,7 @@ class UserProgress(models.Model):
             return topics[0] if topics else None
 
     def __str__(self):
-        return f"{self.user.username} - Grade {self.grade} {self.subject}"
+        return f"{self.user.email} - Grade {self.grade} {self.subject}"
     
 class QuestionRecord(models.Model):
     QUESTION_TYPES = [
