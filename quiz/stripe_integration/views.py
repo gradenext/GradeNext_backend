@@ -1,0 +1,134 @@
+# quiz/stripe_integration/views.py
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .helpers import create_checkout_session
+from django.http import HttpResponse
+import stripe
+from quiz.models import StripeSubscription
+from .prices import STRIPE_PRICE_IDS
+
+class CreateStripeCheckoutSession(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        plan = request.data.get("plan")
+        duration = request.data.get("duration")
+        include_platform_fee = request.data.get("platform_fee_applied", True)
+        coupon_code = request.data.get("coupon_code")
+
+        try:
+            session = create_checkout_session(user, plan, duration, include_platform_fee, request,coupon_code=coupon_code)
+            return Response({
+                "sessionId": session.id,
+                "checkout_url": session.url
+            })
+        except stripe.error.InvalidRequestError as e:
+            return Response({"error": "Invalid coupon code."}, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Success & Cancel Redirect Views
+def stripe_success(request):
+    return HttpResponse("✅ Payment successful! Subscription activated.")
+
+def stripe_cancel(request):
+    return HttpResponse("❌ Payment cancelled. Please try again.")
+
+
+class CancelStripeSubscriptionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        try:
+            subscription = StripeSubscription.objects.get(user=user, status="active")
+
+            try:
+                stripe.Subscription.modify(
+                    subscription.stripe_subscription_id,  
+                    cancel_at_period_end=True
+                )
+            except stripe.error.StripeError as e:
+                return Response({"error": f"Stripe error: {str(e)}"}, status=400)
+
+            subscription.status = "cancelled"
+            subscription.cancel_at_period_end = True
+            subscription.save()
+
+            return Response({
+                "message": "Subscription will be cancelled at the end of the current billing period."
+            }, status=status.HTTP_200_OK)
+
+        except StripeSubscription.DoesNotExist:
+            return Response({"error": "No active subscription found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        
+        
+# quiz/stripe_integration/views.py
+
+class ChangeStripePlanAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        new_plan = request.data.get("plan")         # e.g., "pro"
+        duration = str(request.data.get("duration"))  # e.g., "3"
+
+        if not new_plan or not duration:
+            return Response({"error": "Plan and duration are required."}, status=400)
+
+        try:
+            subscription = StripeSubscription.objects.get(user=user, status="active")
+            stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+
+            new_price_id = STRIPE_PRICE_IDS[new_plan][duration]
+
+            stripe.Subscription.modify(
+                subscription.stripe_subscription_id,
+                items=[{
+                    "id": stripe_sub['items']['data'][0].id,
+                    "price": new_price_id,
+                }],
+                proration_behavior="create_prorations"
+            )
+            
+            invoices = stripe.Invoice.list(
+                customer=stripe_sub.customer,
+                subscription=stripe_sub.id,
+                limit=1
+            )
+            if invoices.data:
+                latest_invoice = invoices.data[0]
+                if latest_invoice.status == "draft":
+                    stripe.Invoice.finalize_invoice(latest_invoice.id)
+                    stripe.Invoice.pay(latest_invoice.id)
+                elif latest_invoice.status == "open":
+                    stripe.Invoice.pay(latest_invoice.id)
+            
+
+
+            # Update local DB
+            subscription.plan = new_plan
+            subscription.duration = duration
+            subscription.current_price_id = new_price_id
+            subscription.save()
+
+            return Response({
+                "message": f"Subscription changed to {new_plan} ({duration} month(s))",
+                "new_price_id": new_price_id
+            })
+
+        except StripeSubscription.DoesNotExist:
+            return Response({"error": "No active subscription found."}, status=404)
+        except KeyError:
+            return Response({"error": "Invalid plan or duration."}, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+

@@ -5,7 +5,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser
-from .models import Coupon
+from .models import Coupon, StripeSubscription
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
@@ -36,3 +36,11 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('email', 'password1', 'password2', 'student_name', 'parent_name', 'gender', 'grade', 'is_staff', 'is_superuser')}
         ),
     )
+
+
+@admin.register(StripeSubscription)
+class StripeSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user_email', 'user_name', 'plan', 'duration', 'stripe_subscription_id', 'created_at')
+    search_fields = ('user_email', 'stripe_subscription_id', 'stripe_customer_id')
+    list_filter = ('plan', 'duration', 'platform_fee_applied')
+    readonly_fields = ('created_at',)

@@ -5,6 +5,7 @@ from quiz.config.curriculum import DIFFICULTY_LEVELS
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin ,BaseUserManager
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from datetime import timedelta
 
 
 class CustomUserManager(BaseUserManager):
@@ -12,6 +13,10 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError('Email must be set')
         email = self.normalize_email(email)
+        
+        if extra_fields.get('plan', 'trial') == 'trial':
+            extra_fields['trial_start_date'] = timezone.now()
+            
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -23,6 +28,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 PLAN_CHOICES = [
+    ('trial', 'Trial'),
     ('basic', 'Basic'),
     ('pro', 'Pro'),
     ('enterprise', 'Enterprise'),
@@ -69,11 +75,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     zip_code = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    is_verified = models.BooleanField(default=False)  
+    is_verified = models.BooleanField(default=False) 
+    trial_start_date = models.DateTimeField(null=True, blank=True) 
     plan = models.CharField(
         max_length=20,
         choices=PLAN_CHOICES,
-        default='basic'
+        default='trial'
     )
     applied_coupon = models.ForeignKey(
         Coupon, 
@@ -81,6 +88,21 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         blank=True, 
         on_delete=models.SET_NULL
     )
+    
+    def is_trial_expired(self):
+        if self.plan != 'trial' or not self.trial_start_date:
+            return False
+        return timezone.now() > self.trial_start_date + timedelta(days=14)
+
+    def trial_days_remaining(self):
+        if self.plan != 'trial' or not self.trial_start_date:
+            return 0
+        days_passed = (timezone.now() - self.trial_start_date).days
+        remaining = 14 - days_passed
+        return max(0, remaining)
+
+    
+    
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['student_name', 'parent_name', 'gender', 'grade']
@@ -214,4 +236,31 @@ class UserTopicProgress(models.Model):
     class Meta:
         unique_together = ('user', 'subject', 'topic')
         
+        
+class StripeSubscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    user_name = models.CharField(max_length=255)
+    user_email = models.EmailField()
+    
+    stripe_customer_id = models.CharField(max_length=255)
+    stripe_subscription_id = models.CharField(max_length=255)
+    
+    plan = models.CharField(max_length=50)
+    duration = models.IntegerField()
+    platform_fee_applied = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=30, default="active")  # e.g., active, cancelled
+    cancel_at_period_end = models.BooleanField(default=False)
+    
+    current_price_id = models.CharField(max_length=100, null=True, blank=True)
+    coupon_applied = models.CharField(max_length=50, null=True, blank=True)
+    
+    start_date = models.DateTimeField(default=timezone.now)  # to track when the subscription started
+    end_date = models.DateTimeField(null=True, blank=True)   # to track when the subscription ends
+
+
+    def __str__(self):
+        return f"{self.user_email} - {self.plan} ({self.duration} month(s))"
+
         

@@ -1,0 +1,47 @@
+[33me488b9d[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m stripe implemented
+[33mf6817ce[m[33m ([m[1;31morigin/main[m[33m)[m custom user registered in admin
+[33m7e4ad85[m cognitory upload image added
+[33m23a9e3b[m level and topic send
+[33m950e52a[m shuffle options,random type Que
+[33mdcab1e8[m System promt, batching
+[33m1f4f34e[m science added
+[33m672d159[m Prompt udated
+[33m165bf30[m gpt model changed and explanation
+[33me2b182f[m explanation formatte
+[33mc6773dc[m explanation call added
+[33m03845aa[m package added
+[33ma92584f[m visual,input type,icons,subtopic
+[33m0437eb7[m app origin added
+[33mdb5b86f[m send grid email updated
+[33mbbeffe6[m send grid implemented
+[33ma38efd8[m opt again
+[33m2323d8a[m otp removed from register
+[33me5b4370[m loggers added to debug
+[33mf0ae07b[m smtp changes for cors
+[33md178240[m session authentication removed
+[33ma78911e[m debug setting updated
+[33m3b29a63[m settings updated
+[33madd7e26[m settings updated
+[33m71f51a5[m register api updated take 2
+[33m659587c[m register api updated
+[33me1f04ff[m database to neon db
+[33m98cb2cc[m neon db take 1
+[33m862acaf[m otp authorization, forgot password  implemented
+[33mbe48f2c[m plan restriction and coupon added
+[33m7b4e59f[m session creation api implement
+[33m86012ea[m login fixed
+[33mb57e552[m profile api, treasure hunt, submit answer issue
+[33m0c855d9[m Add UserTopicProgress model and related serializers, views, and URL routes
+[33m8546db2[m wrong answer,user_stats,revision api completed
+[33meb13846[m question signature added
+[33m1aa59eb[m postgres added
+[33mdcf4a02[m topic intro added
+[33m649b493[m grades added
+[33m7f4ff0a[m grade 6 to 8 added
+[33m1f64b06[m allowed all origins
+[33mcaf1c75[m cors updated
+[33me651534[m revision validation
+[33ma1de831[m deployment
+[33m7441fca[m database added
+[33m9ea3068[m Cors policy updated
+[33mdb44b00[m backend with features

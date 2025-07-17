@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from quiz.permissions import HasActiveSubscription
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import CustomUser, UserSession, SessionProgress, UserProgress, QuestionRecord,UserTopicProgress,OTPVerification
@@ -46,12 +47,12 @@ class RegisterAPI(APIView):
         data.pop('confirm_password', None)
 
         # handle coupon logic here...
-        coupon = validate_coupon(data.get('coupon_code'))
-        if coupon:
-            data['plan'] = coupon.plan_type
-            data['applied_coupon'] = coupon
-            coupon.times_used += 1
-            coupon.save()
+        # coupon = validate_coupon(data.get('coupon_code'))
+        # if coupon:
+        #     data['plan'] = coupon.plan_type
+        #     data['applied_coupon'] = coupon
+        #     coupon.times_used += 1
+        #     coupon.save()
 
         # generate and store OTP
         otp = f"{random.randint(100000, 999999):06d}"
@@ -70,93 +71,6 @@ class RegisterAPI(APIView):
         except Exception:
             return Response({'error': 'Failed to send OTP, please try again later.'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# @method_decorator(csrf_exempt, name='dispatch')
-# class RegisterAPI(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         logger.info(f"RegisterAPI called with data: {request.data}")
-#         serializer = UserRegistrationSerializer(data=request.data)
-#         if serializer.is_valid():
-#             validated_data = serializer.validated_data.copy()
-#             password = validated_data.pop('password')
-#             validated_data.pop('confirm_password', None)
-
-#             # Handle coupon if provided
-#             coupon = validate_coupon(validated_data.get('coupon_code'))
-#             if coupon:
-#                 validated_data['plan'] = coupon.plan_type
-#                 validated_data['applied_coupon'] = coupon
-#                 coupon.times_used += 1
-#                 coupon.save()
-
-#             email = serializer.validated_data['email']
-            
-#         # Create the user
-#             try:
-#                 user = CustomUser.objects.create_user(
-#                         password=password,
-
-#                         **validated_data
-#                     )
-#                 user.is_verified = True
-#                 user.save()
-
-#                     # Create token for the user
-#                 token, _ = Token.objects.get_or_create(user=user)
-
-#                 return Response({
-#                         'status': 'Account verified and created',
-#                         'email': user.email,
-#                         'token': token.key,
-#                         'account_id': user.account_id,
-#                         'user': UserProfileSerializer(user).data
-#                     }, status=status.HTTP_201_CREATED)
-
-#             except Exception as e:
-#                     return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
-            
-
-#             # Generate OTP
-#         #     otp = str(random.randint(100000, 999999))
-#         #     logger.info(f"Generated OTP {otp} for {email}")
-
-#         #     # Clear any previous OTP attempts for registration
-#         #     OTPVerification.objects.filter(email=email, purpose='registration').delete()
-
-#         #     # Store registration data and OTP
-#         #     OTPVerification.objects.create(
-#         #         email=email,
-#         #         otp=otp,
-#         #         purpose='registration',
-#         #         registration_data={
-#         #             'user_data': validated_data,
-#         #             'password': password
-#         #         }
-#         #     )
-
-#         #     # Send OTP via email
-#         #     try:
-                
-#         #         send_otp_email(email, otp)
-#         #         logger.info("OTP email sent successfully")
-#         #         return Response({
-#         #             'status': 'OTP sent',
-#         #             'email': email,
-#         #             'message': 'Check your email for verification OTP'
-#         #         }, status=status.HTTP_200_OK)
-#         #     except Exception as e:
-#         #         logger.error(f"Failed to send OTP to {email}: {str(e)}")
-#         #         return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#         # else:
-#         #     logger.error(f"Serializer errors: {serializer.errors}")
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
 class VerifyOTPAPI(APIView):
     permission_classes = [AllowAny]
 
@@ -328,7 +242,7 @@ class LogoutAPI(APIView):
             return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
 
 class SessionAPI(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasActiveSubscription]
 
     def post(self, request):
         """
@@ -336,7 +250,7 @@ class SessionAPI(APIView):
         Returns: {
             "session_id": "uuid",
             "expires_at": "iso8601",
-            "subjects": ["mathematics", "english","science"]
+            "subjects": ["mathematics", "english","science","programming"]
         }
         """
         try:
@@ -354,6 +268,9 @@ class SessionAPI(APIView):
             initialized_subjects = []
             for subject in user.courses:
                 # Get or create user progress
+                if subject not in GRADE_SUBJECT_CONFIG.get(user.grade, {}):
+                    logger.warning(f"Subject '{subject}' is not available for grade {user.grade}")
+                    continue 
                 user_progress, created = UserProgress.objects.get_or_create(
                     user=user,
                     grade=user.grade,
@@ -554,14 +471,14 @@ class UserProfileAPI(APIView):
         }
 
 class QuestionAPI(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasActiveSubscription]
 
     def post(self, request):
         serializer = QuestionRequestSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if request.user.plan not in ['basic', 'pro', 'enterprise']:
+        if request.user.plan not in ['trial','basic', 'pro', 'enterprise']:
             return Response({'error': 'No active plan'}, status=403)
 
         data = serializer.validated_data
@@ -786,7 +703,7 @@ class QuestionAPI(APIView):
 #             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RevisionQuestionAPI(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasActiveSubscription]
 
     def post(self, request):
         serializer = RevisionQuestionRequestSerializer(
@@ -796,7 +713,7 @@ class RevisionQuestionAPI(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        if request.user.plan not in ['pro', 'enterprise']:
+        if request.user.plan not in ['trial','pro', 'enterprise']:
             return Response({'error': 'Pro plan required for revisions'}, status=403)
 
         data = serializer.validated_data
@@ -1040,7 +957,7 @@ class SubmitAnswerAPI(APIView):
 # Add to views.py
 # Modified view in views.py
 class TopicIntroductionAPI(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,HasActiveSubscription]
 
     def post(self, request):
         serializer = TopicIntroductionSerializer(data=request.data)
@@ -1136,7 +1053,7 @@ class SubjectTopicsAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, subject):
-        if subject not in ["mathematics", "english", "science"]:
+        if subject not in ["mathematics", "english", "science","programming"]:
             return Response({"error": "Invalid subject"}, status=400)
 
         try:
@@ -1197,8 +1114,9 @@ class TopicQuestionAPI(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if request.user.plan != 'enterprise':
-            return Response({'error': 'Enterprise plan required for topic practice'}, status=403)
+        if request.user.plan not in ['enterprise', 'trial']:
+            return Response({'error': 'Enterprise or Trial plan required for topic practice'}, status=403)
+
 
         data = serializer.validated_data
 

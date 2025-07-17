@@ -6,32 +6,34 @@ from quiz.config.curriculum import GRADE_SUBJECT_CONFIG,DIFFICULTY_LEVELS
 # quiz/serializers.py
 from rest_framework import serializers
 from quiz.config.curriculum import GRADE_SUBJECT_CONFIG
+from quiz.models import StripeSubscription
+from django.utils import timezone
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    plan = serializers.ChoiceField(choices=PLAN_CHOICES, write_only=True)
+    # plan = serializers.ChoiceField(choices=PLAN_CHOICES, write_only=True)
     password = serializers.CharField(write_only=True, min_length=6)
     confirm_password = serializers.CharField(write_only=True)
-    coupon_code = serializers.CharField(write_only=True, required=False,allow_blank=True)
+    # coupon_code = serializers.CharField(write_only=True, required=False,allow_blank=True)
 
     class Meta:
         model = CustomUser
         fields = [
             'email', 'password', 'confirm_password', 'student_name',
             'parent_name', 'gender', 'grade', 'courses', 'country',
-            'state', 'zip_code','plan','coupon_code'
+            'state', 'zip_code'
         ]
 
     def validate(self, data):
         if data['password'] != data.pop('confirm_password'):
             raise serializers.ValidationError("Passwords do not match")
         
-        if data['plan'] not in [choice[0] for choice in PLAN_CHOICES]:
-            raise serializers.ValidationError("Invalid plan selected")
-        coupon_code = data.pop('coupon_code', None)
-        if coupon_code:
-            if coupon_code != "NG100":  # Hardcoded special coupon
-                raise serializers.ValidationError("Invalid coupon code")
-            data['plan'] = 'enterprise'  # Override plan to enterprise
+        # if data['plan'] not in [choice[0] for choice in PLAN_CHOICES]:
+        #     raise serializers.ValidationError("Invalid plan selected")
+        # coupon_code = data.pop('coupon_code', None)
+        # if coupon_code:
+        #     if coupon_code != "NG100":  # Hardcoded special coupon
+        #         raise serializers.ValidationError("Invalid coupon code")
+        #     data['plan'] = 'enterprise'  # Override plan to enterprise
         
         return data
 
@@ -52,25 +54,59 @@ class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(min_length=6, write_only=True)
 class UserProfileSerializer(serializers.ModelSerializer):
     plan = serializers.CharField(source='get_plan_display')
-    
+    is_trial_expired = serializers.SerializerMethodField()
+    trial_expired_in_days = serializers.SerializerMethodField()
+    subscription = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
         fields = [
             'account_id', 'email', 'student_name', 'parent_name',
             'gender', 'grade', 'courses', 'country', 'state', 
-            'zip_code', 'plan'
+            'zip_code', 'plan', 'is_trial_expired', 'trial_expired_in_days',
+            'subscription'
         ]
         read_only_fields = ['account_id', 'email']
 
-    def get_active_session(self, obj):
-        active_session = UserSession.objects.filter(user=obj, is_active=True).first()
-        return str(active_session.session_id) if active_session else None
+    def get_is_trial_expired(self, obj):
+        return obj.is_trial_expired()
+
+    def get_trial_expired_in_days(self, obj):
+        return obj.trial_days_remaining()
+
+    def get_subscription(self, obj):
+        if obj.plan == 'trial':
+            return {
+                "plan": "trial",
+                "start_date": obj.trial_start_date,
+                "end_date": obj.trial_start_date + timezone.timedelta(days=14) if obj.trial_start_date else None,
+                "status": "expired" if obj.is_trial_expired() else "active",
+                "valid_for": 14,
+                "plan_type": "trial"
+            }
+
+        try:
+            sub = StripeSubscription.objects.filter(user=obj).order_by('-created_at').first()
+            if sub:
+                valid_days = (sub.end_date - sub.start_date).days if sub.start_date and sub.end_date else None
+                return {
+                    "plan": sub.plan,
+                    "start_date": sub.start_date,
+                    "end_date": sub.end_date,
+                    "status": sub.status,
+                    "valid_for": valid_days,
+                    "plan_type": "paid"
+                }
+        except StripeSubscription.DoesNotExist:
+            return None
+
+        return None
 
 
 
 class QuestionRequestSerializer(serializers.Serializer):
     grade = serializers.IntegerField(min_value=1, max_value=8)
-    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science","programming"])
     session_id = serializers.UUIDField()
 
     def validate(self, data):
@@ -88,7 +124,7 @@ class QuestionRequestSerializer(serializers.Serializer):
     
     
 class RevisionQuestionRequestSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science","programming"])
     session_id = serializers.UUIDField()
 
     def validate(self, data):
@@ -111,7 +147,7 @@ class SubmitAnswerSerializer(serializers.Serializer):
     
 # Add to serializers.py
 class TopicIntroductionSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science","programming"])
     
     
 # class TopicSelectionSerializer(serializers.Serializer):
@@ -136,7 +172,7 @@ class TopicIntroductionSerializer(serializers.Serializer):
 #     subject = serializers.ChoiceField(choices=["mathematics", "english"])
     
 class TopicQuestionRequestSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"])
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science","programming"])
     topic = serializers.CharField()
     session_id = serializers.UUIDField()
 
@@ -151,7 +187,7 @@ class TopicQuestionRequestSerializer(serializers.Serializer):
         return data
     
 class SessionSerializer(serializers.Serializer):
-    subject = serializers.ChoiceField(choices=["mathematics", "english", "science"], required=False)
+    subject = serializers.ChoiceField(choices=["mathematics", "english", "science","programming"], required=False)
     topic = serializers.CharField(required=False)
 
 class CloudinaryImageUploadSerializer(serializers.Serializer):

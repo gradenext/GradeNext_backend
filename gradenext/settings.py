@@ -34,7 +34,7 @@ SECRET_KEY = "django-insecure-aqs##s7+t=!nzxo31gqa7_1w71_vepsc=eubvs85fcnwi7xh1w
 DEBUG = True
 
 # ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['api.gradenext.com', '45.55.188.117','127.0.0.1' ]
+ALLOWED_HOSTS = ['api.gradenext.com', '45.55.188.117','127.0.0.1','localhost' ]
 
 
 # Application definition
@@ -59,7 +59,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication'
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated'
+        'rest_framework.permissions.IsAuthenticated',
+        'quiz.permissions.HasActiveSubscription',
     ]
 }
 
@@ -235,6 +236,11 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 
 

@@ -9,7 +9,6 @@ GRADE_SUBJECT_CONFIG = {
                 "adding_within_100",
                 "length_measurements_within_120_units",
                 "geometry_and_time",
-                "putting_it_all_together",
             ],
             "display_names": {
                 "adding_subtracting_and_working_with_data": "Adding, Subtracting, and Working with Data",
@@ -48,7 +47,7 @@ GRADE_SUBJECT_CONFIG = {
     2: {
         "mathematics": {
             "topics": [
-                "grade2_adding_subtracting_and_data",
+                "adding_subtracting_and_data",
                 "adding_and_subtracting_within_100",
                 "measuring_length",
                 "addition_and_subtraction_on_number_line",
@@ -59,7 +58,7 @@ GRADE_SUBJECT_CONFIG = {
                 "putting_it_all_together",
             ],
             "display_names": {
-                "grade2_adding_subtracting_and_data": "Adding, Subtracting, and Working with Data",
+                "adding_subtracting_and_data": "Adding, Subtracting, and Working with Data",
                 "adding_and_subtracting_within_100": "Adding and Subtracting within 100",
                 "measuring_length": "Measuring Length",
                 "addition_and_subtraction_on_number_line": "Addition and Subtraction on the Number Line",
@@ -108,12 +107,11 @@ GRADE_SUBJECT_CONFIG = {
             "display_names": {
                 "introducing_multiplication": "Introducing Multiplication",
                 "area_and_multiplication": "Area and Multiplication",
-                "wrapping_up_addition_subtraction_1000": "Wrapping Up Addition and Subtraction within 1,000",
+                "wrapping_up_addition_subtraction_1000": "Wrapping Up Addition and Subtraction within 1000",
                 "relating_multiplication_to_division": "Relating Multiplication to Division",
                 "fractions_as_numbers": "Fractions as Numbers",
                 "measuring_length_time_volume_weight": "Measuring Length, Time, Liquid Volume, and Weight",
                 "two_dimensional_shapes_perimeter": "Two-Dimensional Shapes and Perimeter",
-                "putting_it_all_together": "Putting It All Together",
             }
         },
         "english": {
@@ -410,7 +408,7 @@ SUBJECT_TOPICS = {
             "All Kinds of Story Problems"
         ],
         "adding_and_subtracting_within_20": [
-            "Develop Fluency with Addition and Subtraction within 10",
+            "Develop Fluency with Addition and Subtraction within 20",
             "Add and Subtract Using Ten as a Unit",
             "Add within 20",
             "Subtract within 20"
@@ -443,7 +441,7 @@ SUBJECT_TOPICS = {
         ],
 
         # Grade 2 Mathematics
-        "grade2_adding_subtracting_and_data": [
+        "adding_subtracting_and_data": [
             "Add and Subtract within 20",
             "Ways to Represent Data",
             "Diagrams to Compare"
@@ -464,7 +462,7 @@ SUBJECT_TOPICS = {
         ],
         "numbers_to_1000": [
             "The Values of Three Digits",
-            "Compare and Order Numbers within 1,000"
+            "Compare and Order Numbers within 1000"
         ],
         "geometry_time_and_money": [
             "Attributes of Shapes",
@@ -473,9 +471,9 @@ SUBJECT_TOPICS = {
             "The Value of Money"
         ],
         "adding_and_subtracting_within_1000": [
-            "Add and Subtract within 1,000, without Composition or Decomposition",
-            "Add within 1,000, Using Place-Value Strategies",
-            "Subtract within 1,000, Using Place-Value Strategies"
+            "Add and Subtract within 1000, without Composition or Decomposition",
+            "Add within 1000, Using Place-Value Strategies",
+            "Subtract within 1000, Using Place-Value Strategies"
         ],
         "equal_groups": [
             "Odd and Even",
@@ -494,9 +492,9 @@ SUBJECT_TOPICS = {
             "Find the Area of a Figure Composed of Rectangles"
         ],
         "wrapping_up_addition_subtraction_1000": [
-            "Add within 1,000",
-            "Subtract within 1,000",
-            "Round within 1,000",
+            "Add within 1000",
+            "Subtract within 1000",
+            "Round within 1000",
             "Solve Two-Step Problems"
         ],
         "relating_multiplication_to_division": [

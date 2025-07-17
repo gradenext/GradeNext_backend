@@ -1,5 +1,6 @@
 # quiz/urls.py
 from django.urls import path
+from django.urls import include
 from .views import (
     QuestionAPI,
     RegisterAPI,
@@ -37,4 +38,5 @@ urlpatterns = [
     path('auth/forgot-password/', ForgotPasswordAPI.as_view(), name='forgot-password'),
     path('auth/reset-password/', ResetPasswordAPI.as_view(), name='reset-password'),
     path('upload-images/', ImageUploadAPI.as_view(), name='upload-images'),
+    path('stripe/', include('quiz.stripe_integration.urls')),
 ]
