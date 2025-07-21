@@ -82,6 +82,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 "end_date": obj.trial_start_date + timezone.timedelta(days=14) if obj.trial_start_date else None,
                 "status": "expired" if obj.is_trial_expired() else "active",
                 "valid_for": 14,
+                "expired_in_days": obj.trial_days_remaining(),
                 "plan_type": "trial"
             }
 
@@ -89,12 +90,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
             sub = StripeSubscription.objects.filter(user=obj).order_by('-created_at').first()
             if sub:
                 valid_days = (sub.end_date - sub.start_date).days if sub.start_date and sub.end_date else None
+                expired_in_days = (sub.end_date - timezone.now()).days if sub.end_date else None
+                if expired_in_days is not None and expired_in_days < 0:
+                    sub.status = 'expired'
+                    sub.save()
                 return {
                     "plan": sub.plan,
                     "start_date": sub.start_date,
                     "end_date": sub.end_date,
                     "status": sub.status,
                     "valid_for": valid_days,
+                    "expired_in_days": expired_in_days,
                     "plan_type": "paid"
                 }
         except StripeSubscription.DoesNotExist:
