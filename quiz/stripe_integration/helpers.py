@@ -29,8 +29,8 @@ def create_checkout_session(user, plan, duration, include_platform_fee=True, req
             "duration": duration,
             "platform_fee_applied": str(include_platform_fee)
         },
-        "success_url": f"http://localhost:5173/pricing-success?session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url": request.build_absolute_uri("/api/stripe/cancel/"),
+        "success_url": f"https://app.gradenext.com/pricing-success?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"https://app.gradenext.com/pricing-cancel?session_id={{CHECKOUT_SESSION_ID}}",
 
     }
 
