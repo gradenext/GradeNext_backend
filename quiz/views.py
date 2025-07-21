@@ -242,7 +242,7 @@ class LogoutAPI(APIView):
             return Response({'error': 'Invalid session'}, status=status.HTTP_400_BAD_REQUEST)
 
 class SessionAPI(APIView):
-    permission_classes = [IsAuthenticated,HasActiveSubscription]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """
@@ -471,7 +471,7 @@ class UserProfileAPI(APIView):
         }
 
 class QuestionAPI(APIView):
-    permission_classes = [IsAuthenticated,HasActiveSubscription]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = QuestionRequestSerializer(data=request.data, context={'request': request})
@@ -703,7 +703,7 @@ class QuestionAPI(APIView):
 #             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RevisionQuestionAPI(APIView):
-    permission_classes = [IsAuthenticated,HasActiveSubscription]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = RevisionQuestionRequestSerializer(
@@ -957,7 +957,7 @@ class SubmitAnswerAPI(APIView):
 # Add to views.py
 # Modified view in views.py
 class TopicIntroductionAPI(APIView):
-    permission_classes = [IsAuthenticated,HasActiveSubscription]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = TopicIntroductionSerializer(data=request.data)
