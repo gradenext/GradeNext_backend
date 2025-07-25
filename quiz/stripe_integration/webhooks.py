@@ -10,10 +10,22 @@ from quiz.models import CustomUser, StripeSubscription
 import logging
 import time
 from datetime import datetime
+from .prices import STRIPE_PRICE_IDS
 logger = logging.getLogger(__name__)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+
+
+def get_plan_duration_from_price_id(price_id):
+    for plan, durations in STRIPE_PRICE_IDS.items():
+        if isinstance(durations, dict):  # skip "platform_fee"
+            for duration, pid in durations.items():
+                if pid == price_id:
+                    print(f"✅ Found plan: {plan}, duration: {duration} for price_id: {price_id}")
+                    return plan, duration
+    return None, None
+
 
 @csrf_exempt
 def stripe_webhook(request):
@@ -87,6 +99,7 @@ def stripe_webhook(request):
     elif event['type'] == 'invoice.paid':
         logger.info("🔁 Handling invoice.paid event")
         invoice = event['data']['object']
+        print("invoice.paid event received")
 
         try:
             # Get subscription ID
@@ -126,10 +139,10 @@ def stripe_webhook(request):
                 return HttpResponse(status=200)
 
             # Update billing period dates
-            period = invoice["lines"]["data"][0]["period"]
-            stripe_subscription.start_date = make_aware(datetime.fromtimestamp(period["start"]))
-            stripe_subscription.end_date = make_aware(datetime.fromtimestamp(period["end"]))
-            stripe_subscription.save()
+            # period = invoice["lines"]["data"][0]["period"]
+            # stripe_subscription.start_date = make_aware(datetime.fromtimestamp(period["start"]))
+            # stripe_subscription.end_date = make_aware(datetime.fromtimestamp(period["end"]))
+            # stripe_subscription.save()
 
             logger.info(f"✅ Subscription dates updated for {stripe_subscription.user_email}")
             return HttpResponse(status=200)
@@ -137,6 +150,50 @@ def stripe_webhook(request):
         except Exception as e:
             logger.exception(f"❌ Exception during invoice.paid: {e}")
             return HttpResponse(status=500)
+        
+        
+    elif event["type"] == "customer.subscription.updated":
+        print("update event webhook received")
+        stripe_sub = event["data"]["object"]
+        subscription_id = stripe_sub.get("id")
+        period = stripe_sub["items"]["data"][0]
+        current_period_start = period["current_period_start"]
+        current_period_end = period["current_period_end"]
+        
+        print("Current period start from webhook:", current_period_start)
+        print("Current period end from webhook:", current_period_end)
+
+        try:
+            sub = StripeSubscription.objects.get(stripe_subscription_id=subscription_id)
+            print("subscription found in local DB and fetched successfully")
+        except StripeSubscription.DoesNotExist:
+            logger.warning("⚠️ No local subscription for Stripe ID: %s", subscription_id)
+            return HttpResponse(status=200)
+
+        price_id = stripe_sub["items"]["data"][0]["price"]["id"]
+        plan, duration = get_plan_duration_from_price_id(price_id)
+        
+        print("oldDuration:", sub.duration, "oldPlan:", sub.plan)
+        
+        print(f"newPlan: {plan}, newDuration: {duration} for price_id: {price_id}")
+
+        sub.current_price_id = price_id
+        sub.plan = plan
+        sub.duration = duration
+        sub.status = stripe_sub.get("status", sub.status)
+        
+        print("oldEndDate:", sub.end_date, "oldStartDate:", sub.start_date)
+
+        if current_period_start:
+            sub.start_date = make_aware(datetime.fromtimestamp(current_period_start))
+        if current_period_end:
+            sub.end_date = make_aware(datetime.fromtimestamp(current_period_end))
+            
+        print("newEndDate:", sub.end_date, "newStartDate:", sub.start_date)
+
+        sub.save()
+        logger.info("🔄 Updated subscription info from customer.subscription.updated for %s", sub.user.email)
+
 
     # 🛑 User cancelled subscription manually
     elif event_type == 'customer.subscription.deleted':

@@ -91,14 +91,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             if sub:
                 valid_days = (sub.end_date - sub.start_date).days if sub.start_date and sub.end_date else None
                 expired_in_days = (sub.end_date - timezone.now()).days if sub.end_date else None
-                if expired_in_days is not None and expired_in_days < 0:
+                if sub.status != 'cancelled' and expired_in_days is not None and expired_in_days < 0:
                     sub.status = 'expired'
                     sub.save()
+
                 return {
                     "plan": sub.plan,
                     "start_date": sub.start_date,
                     "end_date": sub.end_date,
                     "status": sub.status,
+                    "cancel_at_period_end": sub.cancel_at_period_end,
                     "valid_for": valid_days,
                     "expired_in_days": expired_in_days,
                     "plan_type": "paid"

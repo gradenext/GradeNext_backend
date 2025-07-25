@@ -56,7 +56,7 @@ class CancelStripeSubscriptionAPIView(APIView):
             except stripe.error.StripeError as e:
                 return Response({"error": f"Stripe error: {str(e)}"}, status=400)
 
-            subscription.status = "cancelled"
+            # subscription.status = "cancelled"
             subscription.cancel_at_period_end = True
             subscription.save()
 
@@ -78,57 +78,53 @@ class ChangeStripePlanAPIView(APIView):
 
     def post(self, request):
         user = request.user
-        new_plan = request.data.get("plan")         # e.g., "pro"
-        duration = str(request.data.get("duration"))  # e.g., "3"
+        new_plan = request.data.get("plan")        
+        duration = str(request.data.get("duration"))  
 
         if not new_plan or not duration:
             return Response({"error": "Plan and duration are required."}, status=400)
 
         try:
+            # Get active subscription
             subscription = StripeSubscription.objects.get(user=user, status="active")
             stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
 
+            # Get new price ID
             new_price_id = STRIPE_PRICE_IDS[new_plan][duration]
+            
+            print(f"Changing subscription to {new_plan} for {duration} month(s)")
 
-            stripe.Subscription.modify(
+            # Modify subscription with new plan
+            updated = stripe.Subscription.modify(
                 subscription.stripe_subscription_id,
                 items=[{
                     "id": stripe_sub['items']['data'][0].id,
                     "price": new_price_id,
                 }],
-                proration_behavior="create_prorations"
+                billing_cycle_anchor="now",  # 👈 force immediate cycle change
+                proration_behavior="create_prorations",
+                cancel_at_period_end=False,
+                metadata={
+                    "plan": new_plan,
+                    "duration": duration,
+                    "changed_by_user_id": str(user.id)
+                }
             )
-            
-            invoices = stripe.Invoice.list(
-                customer=stripe_sub.customer,
-                subscription=stripe_sub.id,
-                limit=1
-            )
-            if invoices.data:
-                latest_invoice = invoices.data[0]
-                if latest_invoice.status == "draft":
-                    stripe.Invoice.finalize_invoice(latest_invoice.id)
-                    stripe.Invoice.pay(latest_invoice.id)
-                elif latest_invoice.status == "open":
-                    stripe.Invoice.pay(latest_invoice.id)
-            
 
 
-            # Update local DB
-            subscription.plan = new_plan
-            subscription.duration = duration
-            subscription.current_price_id = new_price_id
-            subscription.save()
-
+            # ❌ No local DB update here – let webhook handle it
             return Response({
-                "message": f"Subscription changed to {new_plan} ({duration} month(s))",
-                "new_price_id": new_price_id
+                "message": f"Subscription change requested for {new_plan} ({duration} month(s))",
+                "stripe_subscription_status": updated["status"],
+                "proration_behavior": "create_prorations",
             })
 
         except StripeSubscription.DoesNotExist:
-            return Response({"error": "No active subscription found."}, status=404)
+            return Response({"error": "No active subscription found."}, status=status.HTTP_404_NOT_FOUND)
+
         except KeyError:
-            return Response({"error": "Invalid plan or duration."}, status=400)
+            return Response({"error": "Invalid plan or duration."}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
