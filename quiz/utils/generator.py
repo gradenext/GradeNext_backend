@@ -62,8 +62,7 @@ class QuestionGenerator:
         )
 
         raw_output = response.choices[0].message.content.strip()
-        print(f"Raw OpenAI Response:\n{raw_output}")
-        logger.debug(f"Raw OpenAI Response:\n{raw_output}")
+        # logger.debug(f"Raw OpenAI Response:\n{raw_output}")
 
         # ✅ Extract array using regex fallback if needed
         try:

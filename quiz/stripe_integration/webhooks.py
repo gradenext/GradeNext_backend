@@ -55,6 +55,7 @@ def stripe_webhook(request):
         coupon_id = discount["coupon"]["id"] if discount else None
 
         plan = metadata.get("plan", "unknown")
+        print("Plan from metadata in the webhook checkout event:", plan)
         duration = int(metadata.get("duration", 1))
         platform_fee_applied = metadata.get("platform_fee_applied", "true") == "true"
 
@@ -79,6 +80,7 @@ def stripe_webhook(request):
             user.plan = plan
             user.is_verified = True
             user.save()
+            print("new plan assigned to user:", user.plan)
             print(f"✅ New subscription created for {user.email}")
 
         except CustomUser.DoesNotExist:
@@ -192,6 +194,15 @@ def stripe_webhook(request):
         print("newEndDate:", sub.end_date, "newStartDate:", sub.start_date)
 
         sub.save()
+        
+        user = CustomUser.objects.get(email=sub.user.email)
+        user.plan = plan
+        user.save()
+        print("assigning new plan to user plan")
+        print("user plan before update :",user.plan)        
+    
+
+        print("user plan after update :",user.plan)
         logger.info("🔄 Updated subscription info from customer.subscription.updated for %s", sub.user.email)
 
 

@@ -19,6 +19,11 @@ class CreateStripeCheckoutSession(APIView):
         duration = request.data.get("duration")
         include_platform_fee = request.data.get("platform_fee_applied", True)
         coupon_code = request.data.get("coupon_code")
+        
+        print("user data assigning in checkout api :", user)
+        print("duration from request.data:", request.data)
+        print("plan from request.data:", plan)
+        print("request.user:",request.user)
 
         try:
             session = create_checkout_session(user, plan, duration, include_platform_fee, request,coupon_code=coupon_code)
