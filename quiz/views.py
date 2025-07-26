@@ -481,11 +481,6 @@ class QuestionAPI(APIView):
         if request.user.plan not in ['trial','basic', 'pro', 'enterprise']:
             return Response({'error': 'No active plan'}, status=403)
         
-        print("Request data:", request.data)
-        print("Request user:", request.user)
-        print("Request user courses:", request.user.courses)
-        print("Request user grade:", request.user.grade)
-        print("Request user plan:", request.user.plan)
 
         data = serializer.validated_data
         session_id = request.data.get('session_id')
